@@ -15,7 +15,7 @@ export class Operation {
      * @param {Transaction} tx 
      */
     execute(tx) {
-        const result = this.block.call(this.name, this.data);
+        const result = this.block.call(this.name, this);
         if (tx && tx instanceof Transaction) {
             tx.results.push({ operation: this, result });
             tx.executed.push(this);
@@ -49,8 +49,11 @@ export class Transaction {
         this.codex = codex;
         this.operations = new Set(ops);
 
-        /** @type {Set<function(): Operation[]>} */
+        /** @type {Set<function(Transaction): Operation[]>} */
         this.afters = new Set();
+
+
+        this.temp = new Map();
     }
 
     /** @type {Array<{ operation: Operation, result: any }>} */
@@ -66,7 +69,7 @@ export class Transaction {
         try {
             for (const op of this.operations) op.execute(this);
             for (const after of this.afters) {
-                after().forEach(op => op.execute(this));
+                after(this).forEach(op => op.execute(this));
             }
             await tick().then(() => this.commit());
             return this.results;
@@ -89,7 +92,7 @@ export class Transaction {
     }
 
 
-    /** @param {function(): Operation[]} callback*/
+    /** @param {function(Transaction): Operation[]} callback*/
     after = callback => {
         if (typeof callback === 'function') this.afters.add(callback);
         return this;
@@ -133,5 +136,38 @@ export const executor = (block, callback) => (data) => {
 }
 
 
+/** @typedef {function(Operation): any} Applier */
+
+/**
+ * @param {Applier} callback
+ * @param {String} [name]
+ * @param {import('../states/block.svelte').Block} [block]
+ * @returns {Applier}
+ */
+export const applier = (callback, name, block) => {
+    if (block && name) block.method(name, callback);
+    return callback;
+};
+
+
+/** 
+ * @template {any} [T=any]
+ * @typedef {function(T): Operation[]} Preparator
+ */
+
+/**
+ * @template {any} [T=any]
+ * @param {Preparator<T>} callback 
+ * @param {string} [name] 
+ * @param {import('../states/block.svelte').Block} [block]
+ * @returns {Preparator<T>}
+ */
+export const preparer = (callback, name, block) => {
+    if (block && name) block.preparator(name, callback);
+    return callback;
+}
+
 export const SMART = Symbol('smart');
 export const ITSELF = Symbol('itself');
+
+export const GETDELTA = Symbol('getDelta');

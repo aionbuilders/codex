@@ -4,6 +4,7 @@
 * @property {string[]} params - Parameters for the operation, such as coordinates or block IDs.
 * @property {string} handler - The name of the handler function to execute for this operation.
 */
+import { applier, preparer } from '$lib/utils/operations.utils';
 import { BlocksInsertion, BlocksRemoval, BlocksReplacement } from './blocks/operations/block.ops';
 import { Codex } from './codex.svelte';
 
@@ -16,12 +17,14 @@ import { Codex } from './codex.svelte';
 * @property {string} type - The type of block (e.g., "paragraph", "text", "linebreak").
 * @property {Object<string, BlockOperation>} [operations] - A map of operation types to their handlers.
 * @property {(import('./capability.svelte').Capability|symbol)[]} [capabilities] - The capabilities of the block.
+* @property {string[]} [dataTypes] - The data types supported by the block (e.g., "text/plain", "text/html").
 */
 
 /**
 * @typedef {BlockManifest & {
 *   blocks: Object<string, BlockConstructor>;
 *   strategies?: import('./strategy.svelte').Strategy[];
+*   systems?: import('./system.svelte').System[];
 * }} MegaBlockManifest
 */
 
@@ -54,7 +57,8 @@ export class Block {
     static manifest = {
         type: 'block',
         operations: {},
-        capabilities: []
+        capabilities: [],
+        dataTypes: []
     }
 
     /** @param {import('./codex.svelte').Codex?} codex @param {BlockInit} init */
@@ -82,7 +86,6 @@ export class Block {
         this.executors = new Map();
 
         this.method('delete', () => this.rm());
-
     }
 
     get type() {
@@ -91,6 +94,10 @@ export class Block {
 
     get capabilities() {
         return new Set(this.manifest.capabilities);
+    }
+
+    get dataTypes() {
+        return new Set(this.manifest.dataTypes);
     }
 
     /** @type {import('svelte').Component?} */
@@ -139,6 +146,32 @@ export class Block {
         else return [];
     });
 
+    /** @type {({start: number, end: number} & Object) | null | undefined} */
+    selection = $derived({
+        start: 0,
+        end: 0,
+    });
+
+    start = $derived(0);
+    end = $derived(0);
+
+    length = $derived(0);
+
+    /**
+    * @param {import('$lib/values/focus.values').Focus} f
+    * @returns {{
+    *   startElement: Node,
+    *  startOffset: number,
+    *   endElement: Node,
+    *   endOffset: number,
+    * } | null | undefined}
+    */
+    getFocusData(f) {
+        return null;
+    }
+
+
+
     /** @param {import('./capability.svelte').Capability} capability */
     can = capability => this.capabilities.has(capability)
 
@@ -152,6 +185,10 @@ export class Block {
         }
         return false;
     }
+
+
+
+
 
 
         /** @param {Node} node */
@@ -317,6 +354,7 @@ export class Block {
      * @returns {any}
      */
     call = (name, ...args) => {
+        this.log('Calling method:', { name, args });
         const method = this.methods.get(name);
         if (!method) throw new Error(`Method "${name}" not found in block "${this.type}".`);
         return method(...args);
@@ -444,6 +482,11 @@ export class MegaBlock extends Block {
         return this.constructor.manifest;
     }
 
+    /** @type {import('./system.svelte').System[]} */
+    get systems() {
+        return this.manifest?.systems || [];
+    }
+
     /** @type {Record<string, new (...args: any[]) => T>} */
     get blocks() {
         return this.manifest.blocks;
@@ -451,6 +494,14 @@ export class MegaBlock extends Block {
 
     get strategies() {
         return this.manifest.strategies;
+    }
+
+    get dataTypes() {
+        const types = new Set(this.manifest.dataTypes);
+        Object.values(this.blocks).forEach(B => {
+            if (B.manifest.dataTypes) B.manifest.dataTypes.forEach(t => types.add(t));
+        });
+        return types;
     }
 
     /** @type {T[]} */
@@ -470,13 +521,8 @@ export class MegaBlock extends Block {
 
     // PREPARATORS
 
-    /**
-     * Prepares the insertion of blocks.
-     * @param {import('./blocks/operations/block.ops').BlocksInsertionData & {
-     *  block?: BlockData
-     * }} data
-     */
-    prepareInsert = data => {
+    
+    prepareInsert = preparer(/** @param {import('./blocks/operations/block.ops').BlocksInsertionData & { block?: BlockData }} data */ data => {
         let {offset} = data;
 
         if (!offset) offset = this.children.length;
@@ -494,18 +540,17 @@ export class MegaBlock extends Block {
                 blocks: data.blocks
             })
         ]
-    }
-    // WOW
+    })
+
+
     /**
      * 
-     * @param {import('./blocks/operations/block.ops').BlocksRemovalData & {
-     * id?: string,
-     * }} data 
+     * @param {import('./blocks/operations/block.ops').BlocksRemovalData & { id?: string }} data 
      */
     prepareRemove(data) {
         let { id, ids } = data;
 
-        if (id && ids) throw new Error('Cannot provide both "id" and "ids" to remove blocks.');
+        if (id && ids) throw new Error('Cannot sdow brier provide both "id" and "ids" to remove blocks.');
         if (id) ids = [id];
         if (!ids || !ids.length) throw new Error('No ids provided to remove blocks.');
 
@@ -544,6 +589,7 @@ export class MegaBlock extends Block {
         ];
     }
 
+
     // EXECUTORS
 
     /**
@@ -581,14 +627,10 @@ export class MegaBlock extends Block {
 
     // APPLYERS
 
-    /**
-     * Inserts data into the block.
-     * @param {{
-     *  offset: number,
-     *  blocks: BlockData[]
-     * }} data 
-     */
-    applyInsert = data => {
+    applyInsert = applier(op => {
+        /** @type {{ offset: number, blocks: BlockData[] }} */
+        const data = op.data;
+
         /** @type {T[]} */
         const blocks = data.blocks.map(({type, init}) => {
             const B = this.blocks[type];
@@ -603,31 +645,25 @@ export class MegaBlock extends Block {
         ];
 
         return blocks;
-    }
+    })
 
-    /**
-     * @param {{
-     * ids: string[]
-     * }} data 
-     */
-    applyRemove = data => {
+    applyRemove = applier(op => {
+        /** @type {{ ids: string[] }} */
+        const data = op.data;
+
         const removed = this.children.filter(child => data.ids.includes(child.id));
         this.children = this.children.filter(child => !data.ids.includes(child.id));
         return removed;
-    }
+    })
 
-    /**
-     * @param {{
-     * from: number,
-     * to: number,
-     * blocks: BlockData[]
-     * }} data 
-     */
-    applyReplace = data => {
+    applyReplace = applier(op => {
+        /** @type {{ from: number, to: number, blocks: BlockData[] }} */
+        const data = op.data;
+
         const blocks = data.blocks?.map(({type, init}) => {
             const B = this.blocks[type];
             if (!B) throw new Error(`Block type "${type}" not found in mega block.`);
-            return new B(this.codex, init);
+            return new B(this instanceof Codex ? this : this.codex, init);
         }).filter(b => b instanceof Block) || [];
 
         const removed = [...this.children].slice(data.from, data.to);
@@ -639,7 +675,7 @@ export class MegaBlock extends Block {
         ];
 
         return {removed, added: blocks};
-    }
+    })
 
 
     // TRANSFORMERS

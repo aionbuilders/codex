@@ -1,21 +1,20 @@
 import { INPUTABLE, MERGEABLE } from "$lib/utils/capabilities";
 import { Focus } from "$lib/values/focus.values";
-import { MegaBlock } from "../block.svelte";
 import { Strategy } from "../strategy.svelte";
+import { until } from "$lib/utils/utils";
+import { GETDELTA } from "$lib/utils/operations.utils";
 
 
 /**
  * 
  * @param {import('../codex.svelte').Codex} codex 
- * @param {{
- *  content: any,
- *  format: string
- * }} data 
+ * @param {any} data 
  */
 const replace = (codex, data) => {
-
+    const $REFOCUS = Symbol('refocus');
 
     const startBlock = codex.children.find(child => child.selected);
+    const startPosition = startBlock && (startBlock.start + (startBlock.selection ? startBlock.selection.start : 0)) || 0;
     const endBlock = codex.children.findLast(child => child.selected && child !== startBlock);
     const betweenBlocks = ((startBlock && endBlock) && codex.children.slice(codex.children.indexOf(startBlock) + 1, codex.children.indexOf(endBlock))) || []; 
 
@@ -29,43 +28,49 @@ const replace = (codex, data) => {
     })
     ops.push(...(startBlock ? (startBlock.prepare('remove')): []));
 
-    if (startBlock) {
-        if (data?.content) {
-            if (startBlock.capabilities.has(INPUTABLE)) {
-                const inputOps = startBlock?.prepare('input', { content: data.content, type: data.format });
-                if (inputOps?.length) ops.push(...inputOps);
-                codex.log('Preparing input with ops:', inputOps);
+    if (data) {
+        const translator = codex.systems.find(s => s.handlers.has('input'));
+        if (translator) {
+            
+            /** @type {import('../systems/codex.system.svelte').TransformedData} */
+            const transformData = translator.handle('input', data);
 
+            if (transformData && transformData.blocks && transformData.blocks.length) {
+                const blocks = transformData.blocks;
 
+                const [startBlocks, next] = until(blocks, b => {
+                    return !!(startBlock?.dataTypes.has(b.type) && startBlock?.capabilities.has(INPUTABLE));
+                });
+
+                if (startBlocks.length) ops.push(...(startBlock?.prepare('input', { content: startBlocks }, {
+                    [$REFOCUS]: true
+                }) || []));
                 
-
-                // return;
+                //TODO: implement next block input if next is not null and startBlock cannot accept all blocks
             }
-        } else ops.push(...startBlock.prepare('remove'));
+        }
     }
-
-    const startPosition = startBlock?.getRelativePosition();
 
     if (ops.length) {
         codex.tx(ops).after(() => {
             if (endBlock && endBlock.capabilities.has(MERGEABLE) && isThereSelectedBlocksBeforeEnd) {
                 if (startBlock?.capabilities.has(MERGEABLE)) {
-                    console.log(startBlock.children);
                     const ops = startBlock.prepare('merge', endBlock);
-                    codex.log('Merging blocks with ops:', ops);
                     return ops;
                 }
             }
             return [];
-        }).execute();
+        }).execute().then(results => {
+            const hinter = results.map(r => r.operation).filter(op => op.metadata?.[$REFOCUS] && op.metadata?.[GETDELTA]);
+            const refocus = startPosition + (hinter.reduce((acc, op) => acc + (op.metadata?.[GETDELTA]?.() || 0), 0));
+            const data = codex.getFocusData(new Focus(refocus, refocus));
+            if (data) codex.focus({
+                start: { node: data.startElement, offset: data.startOffset },
+                end: { node: data.endElement, offset: data.endOffset },
+            });
+
+        })
     }
-
-    requestAnimationFrame(() => {
-        const coordinates = startBlock?.toDOM(startPosition);
-        codex.log('Coordinates to set selection:', coordinates);
-        if (coordinates?.start) codex.setRange({start: coordinates.start});
-    });
-
 }
 
 /**
@@ -104,7 +109,7 @@ export const beforeInputStrategy = new Strategy(
         if (event.inputType === 'insertText' && event.data) {
             event.preventDefault();
             codex.log('Inserting text in multi-block selection:', event.data);
-            replace(codex, { content: event.data, format: 'text' });
+            replace(codex, event.data);
         }
     }
 ).tag('beforeinput').tag('codex');

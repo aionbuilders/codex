@@ -4,8 +4,8 @@ import { Text } from "./text.svelte";
 import { paragraphStrategies } from "./strategies/paragraph.strategies";
 import { Focus } from "$lib/values/focus.values";
 import { ParagraphBlockInsertion } from "./operations/paragraph.ops";
-import { BlocksInsertion, BlocksRemoval } from "./operations/block.ops";
-import { SMART, Operation } from "$lib/utils/operations.utils";
+import { BlocksRemoval } from "./operations/block.ops";
+import { SMART, Operation, GETDELTA } from "$lib/utils/operations.utils";
 import { EDITABLE, INPUTABLE, MERGEABLE, TRANSFORMS_TEXT } from "$lib/utils/capabilities";
 
 /** 
@@ -102,7 +102,7 @@ export class Paragraph extends MegaBlock {
                     const ops = [ new BlocksRemoval(this, {ids: empties.map(empty => empty.id)}) ];
                     const selection = this.selection;
                     this.codex?.effect(ops);
-                    if (selection.isInParagraph) this.focus(new Focus(selection.startOffset, selection.endOffset));
+                    if (selection?.isInParagraph) this.focus(new Focus(selection.start, selection.end));
                 }
             })
         });
@@ -123,9 +123,10 @@ export class Paragraph extends MegaBlock {
         const firstOffset = firstChild && firstChild.start + (firstChild instanceof Text ? firstChild.selection?.start : 0);
         const lastOffset = lastChild && lastChild.start + (lastChild instanceof Text ? lastChild.selection?.end : 1);
 
-        return {
-            startOffset: firstOffset,
-            endOffset: lastOffset,
+
+        if (this.selected) return {
+            start: firstOffset,
+            end: lastOffset,
             isCollapsed: this.codex?.selection.collapsed,
             isInParagraph: !!firstChild
         };
@@ -164,7 +165,7 @@ export class Paragraph extends MegaBlock {
                     })
                 ]);
                 tx?.execute().then(r => {
-                    this.focus(new Focus(selection.startOffset + 1, selection.startOffset + 1));
+                    this.focus(new Focus(selection.start + 1, selection.start + 1));
 
                 });
             }
@@ -194,7 +195,7 @@ export class Paragraph extends MegaBlock {
             return;
         }
 
-        if (e.key === 'Backspace' && selection.isCollapsed && selection.startOffset === 0) {
+        if (e.key === 'Backspace' && selection.isCollapsed && selection.start === 0) {
             e.preventDefault();
 
             /** @type {Paragraph|null} */
@@ -223,7 +224,7 @@ export class Paragraph extends MegaBlock {
                     this.codex.tx([
                         ...this.prepareRemove({ ids: [block.id] }),
                     ]).execute();
-                    const offset = key === 'Backspace' ? selection.startOffset - 1 : selection.startOffset;
+                    const offset = key === 'Backspace' ? selection.start - 1 : selection.start;
                     
                     this.focus(new Focus(offset, offset));
                     return;
@@ -235,7 +236,7 @@ export class Paragraph extends MegaBlock {
                     const blockIndex = this.children.findIndex(c => c === block);
                     const ops = [];
                     if (e.shiftKey) {
-                        const offset = this.selection.startOffset;
+                        const offset = this.selection.start;
                         if (editData) ops.push(...block.prepareEdit(editData));
                         ops.push(...this.prepareInsert({
                             block: {type: 'linebreak'},
@@ -346,9 +347,6 @@ export class Paragraph extends MegaBlock {
             });
             const selection = this.selection;
             this.codex.effect(ops);
-
-            
-            // if (selection.isInParagraph) this.focus(new Focus(selection.startOffset, selection.endOffset));
         }
 
         if (this.children.length === 0) {
@@ -412,7 +410,7 @@ export class Paragraph extends MegaBlock {
         }
     }
 
-    debug = $derived(`${this.selection.startOffset} - ${this.selection.endOffset} [length: ${this.length}]`);
+    debug = $derived(`${this.selection?.start} - ${this.selection?.end} [length: ${this.length}]`);
 
     /**
      * Merges the paragraph with the given data.
@@ -455,7 +453,7 @@ export class Paragraph extends MegaBlock {
     prepareSplit = data => {
         if (!this.codex) return [];
         if (!data) data = SMART;
-        if (data === SMART) (data = { start: this.selection.startOffset || 0, end: this.selection.endOffset || this.selection.startOffset || 0 });
+        if (data === SMART) (data = { start: this.selection.start || 0, end: this.selection.end || this.selection.start || 0 });
         else if (data?.offset && (data.start || data.end)) throw new Error('Cannot specify both offset and start/end for split operation.');
         else if (data?.offset) data = { start: data.offset, end: data.offset };
         else if (!data?.start && !data?.end) data = { start: 0, end: 0 };
@@ -567,35 +565,45 @@ export class Paragraph extends MegaBlock {
     /**
      * @param {{
      *  position?: ({start?: number, end?: number, offset?: number})|SMART,
-     *  content: any,
-     *  type?: 'text'|'markdown'
+     *  content: any[],
      * }} data 
      */
     prepareInput(data) {
         data.position ??= SMART;
-        const position = this.normalizePosition(data.position === SMART || !data.position ? { start: this.selection.startOffset, end: this.selection.endOffset } : data.position);
-        this.log('Preparing input in paragraph:', this.index, 'with data:', data, 'normalized position:', position);
+        if (!data.content) return [];
+        const position = this.normalizePosition(data.position === SMART || !data.position ? { start: this.selection.start, end: this.selection.end } : data.position);
         if (!this.codex) return [];
         const ops = [];
-        if (data?.type === 'text') {
-            if (data.content) {
-                ops.push(...this.prepareEdit({
-                    content: [
-                        {
-                            type: 'text',
-                            init: {
-                                text: data.content
-                            }
-                        }
-                    ]
-                }));
+
+        const content = data.content.map(c => {
+            const BestBlock = c.type === 'text' ? Text : Linebreak;
+
+            if (BestBlock === Text) {
+                if (!c.content || typeof c.content !== 'string') throw new Error('Text block must have a content string.');
+                return {
+                    type: 'text',
+                    init: {
+                        text: c.content || '',
+                    }
+                }
+            } else if (BestBlock === Linebreak) {
+                return {
+                    type: 'linebreak',
+                }
+            } else {
+                throw new Error(`Unsupported block type "${c.type}" for input operation in paragraph.`);
             }
-        }
+        });
+
+        if (content.length) ops.push(...this.prepareEdit({ content }));
+
+        console.log('Prepared input ops:', ops);
+
+
 
         return ops;
 
     }
-
 
     /**
      * @param {{
@@ -619,12 +627,14 @@ export class Paragraph extends MegaBlock {
         }) : this.prepareRemove({ id: startBlock.id })) : []));
         ops.push(...(endBlock ? (endBlock instanceof Text ? endBlock.prepareEdit({
             from: 0,
-            to: endBlock.selection?.end || 0
+            to: endBlock.selection?.end || 0,
         }) : this.prepareRemove({ id: endBlock.id })) : []));
 
-        if (data?.content?.length) ops.push(...this.prepareInsert({
+        if (data?.content?.length) ops.push(...this.prepare('insert', {
             blocks: data.content,
-            offset: startIndex + 1
+            offset: startIndex + 1,
+        }, {
+            [GETDELTA]: () => data.content.map(c => c.type === 'text' ? (c.init?.text?.length || 0) : 1).reduce((a, b) => a + b, 0)
         }));
 
         this.log('Preparing edit in paragraph:', this.index, 'with ops:', ops);
@@ -632,7 +642,7 @@ export class Paragraph extends MegaBlock {
         return ops;
     }
 
-
+    
 
     toObject() {
         return {
@@ -652,8 +662,8 @@ export class Paragraph extends MegaBlock {
 
     getRelativePosition() {
         return {
-            start: this.selection.startOffset,
-            end: this.selection.endOffset
+            start: this.selection.start,
+            end: this.selection.end
         }
     }
 
@@ -669,11 +679,11 @@ export class Paragraph extends MegaBlock {
         return {
             start: {
                 node: data?.startElement || this.element,
-                offset: data?.startOffset || 0
+                offset: data?.start || 0
             },
             end: {
                 node: data?.endElement || this.element,
-                offset: data?.endOffset || 0
+                offset: data?.end || 0
             }
         };
 
@@ -703,8 +713,8 @@ export class Paragraph extends MegaBlock {
         const endBlock = this.children.findLast(child => child.selected && child !== startBlock);
         return super.snapshot({
             selection: {
-                startOffset: this.selection.startOffset,
-                endOffset: this.selection.endOffset,
+                startOffset: this.selection.start,
+                endOffset: this.selection.end,
                 startBlock,
                 endBlock
             }

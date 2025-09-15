@@ -12,11 +12,14 @@ import { MegaBlock } from './block.svelte';
 import { Paragraph } from './blocks/paragraph.svelte';
 import { CodexSelection } from './selection.svelte';
 import LinebreakComponent from '$lib/components/Linebreak.svelte';
-import { TextSystem } from './systems/textSystem.svelte';
-import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { multiBlockBackspaceStrategy, codexStrategies } from './strategies/codex.strategies';
 import { Transaction } from '$lib/utils/operations.utils';
 import { History } from './history.svelte';
+import { ParagraphSystem } from './systems/paragraph.system.svelte';
+import { DataTransformSystem } from './systems/codex.system.svelte';
+import { Focus } from '$lib/values/focus.values';
+
+/** @typedef {import('$lib/values/focus.values').Focus} Focus */
 
 export const initialComponents = {
     codex: CodexComponent,
@@ -29,32 +32,27 @@ export const initialBlocks = [
     Paragraph,
 ]
 
-export const initialSystems = {
-    text: TextSystem,
-}
+export const initialSystems = [
+    new ParagraphSystem(0),
+    new DataTransformSystem(1),
+]
 
 export const initialStrategies = [
     ...codexStrategies
 ]
 
-/**
-* @param {Codex} codex
-*/
-export const onInit = codex => {
-    const lastChild = codex.children[codex.children.length - 1];
-    if (!lastChild || !(lastChild instanceof Paragraph)) {
-        codex.children = [...codex.children, new Paragraph(codex)];
-    }
-}
-
 export class Codex extends MegaBlock {
 
+    /** @type {import("./block.svelte").MegaBlockManifest} */
     static manifest = {
         type: 'codex',
         blocks: {
             paragraph: Paragraph
         },
-        strategies: initialStrategies
+        strategies: initialStrategies,
+        systems: [
+            ...initialSystems
+        ],
     }
 
     /**
@@ -66,27 +64,17 @@ export class Codex extends MegaBlock {
         
         /** @type {Object<string, import('svelte').Component>} */
         this.components = init.components || initialComponents;
-        
         this.selection = new CodexSelection(this);
-
         this.history = new History();
-        
-        this.systems = new SvelteMap();
-        for (const [name, System] of Object.entries(initialSystems)) {
-            try {
-                this.systems.set(name, new System(this));
-                console.log(`Initialized system "${name}"`);
-            } catch (error) {
-                console.error(`Failed to initialize system "${name}":`, error);
-            }
-        }
         
         $effect.root(() => {
             $effect(() => {
                 if (this.element) {
                     this.selection.observe(this.element);
                     this.enforceRequiredStyles();
-                    init.onInit?.(this) || onInit(this);
+
+                    const inits = this.systems.filter(s => s.handlers.has('init')).sort((a, b) => b.priority - a.priority).map(s => s.handlers.get('init'));
+                    inits.forEach(init => init(this));
                 }
             })
         })
@@ -116,12 +104,7 @@ export class Codex extends MegaBlock {
         }
     }
     
-    // debug = $derived({
-    //     elements: this.children.map(child => child.debug || {}),
-    // });
-    
     debug = $derived(`codex |\n${this.children.map(child => child.debug || {}).join(' + ')}`);
-    
     
     /**
      * Generic event handler with ascension logic
@@ -177,7 +160,7 @@ export class Codex extends MegaBlock {
     /** @param {KeyboardEvent} e */
     onkeydown = e => this.handleEvent(e, 'onkeydown', 'keydown');
 
-    /** @param {import('$lib/utils/operations.utils').Operation[]} ops */
+    /** @param {import('$lib/utils/operations.utils').Operation[]} ops  */
     tx = (ops) => new Transaction(ops, this)
 
     /** @param {import('$lib/utils/operations.utils').Operation[]} ops  */
@@ -213,6 +196,22 @@ export class Codex extends MegaBlock {
      * }} focus
      */
     focus = (focus) => requestAnimationFrame(() => this.selection.setRange(focus.start.node, focus.start.offset, focus.end?.node || focus.start.node, focus.end?.offset || focus.start.offset));
+
+    /** @param {Focus} f */
+    getFocusData(f) {
+        const {start, end} = f;
+
+        const startNode = this.children.find(b => b.start <= start && b.end >= start);
+        const endNode = start === end ? startNode : this.children.find(b => b.start <= end && b.end >= end);
+
+        if (startNode && endNode) {
+            const startFocus = startNode.getFocusData(new Focus(start - startNode.start, startNode === endNode ? end - startNode.start : startNode.length));
+            const endFocus = startNode === endNode ? startFocus : endNode.getFocusData(new Focus(0, end - endNode.start));
+            if (!startFocus) throw new Error("Start focus data not found");
+            if (!endFocus) throw new Error("End focus data not found");
+            return { startElement: startFocus.startElement, startOffset: startFocus.startOffset, endElement: endFocus.endElement, endOffset: endFocus.endOffset };
+        }
+    }
 
     /**
      * @param {{

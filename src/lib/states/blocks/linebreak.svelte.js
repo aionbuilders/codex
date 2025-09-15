@@ -15,7 +15,8 @@ export class Linebreak extends Block {
 
     /** @type {import("../block.svelte").BlockManifest} */    
     static manifest = {
-        type: 'linebreak'
+        type: 'linebreak',
+        dataTypes: ['text/linebreak']
     }
 
     /** @param {import('../codex.svelte').Codex} codex @param {import("../block.svelte").BlockInit} [init] */

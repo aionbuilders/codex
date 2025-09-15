@@ -129,8 +129,8 @@ export const paragraphBeforeInputStrategy = new Strategy(
                         text: event.data || '',
                     }
                 }])
-                block.log('focus at:', selection.startOffset + event.data.length);
-                block.focus(new Focus(selection.startOffset + event.data.length, selection.startOffset + event.data.length));
+                block.log('focus at:', selection.start + event.data.length);
+                block.focus(new Focus(selection.start + event.data.length, selection.start + event.data.length));
             }
         }
     }

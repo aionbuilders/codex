@@ -1,0 +1,1 @@
+export {EDITABLE, MERGEABLE, STYLABLE, INPUTABLE} from './utils/capabilities.js';

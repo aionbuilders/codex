@@ -2,7 +2,7 @@ import { untrack } from 'svelte';
 import { Block } from '../block.svelte';
 import { TextDeleteOperation, TextEdition, TextInsertOperation } from './operations/text.ops';
 import { Focus } from '$lib/values/focus.values';
-import { executor, SMART, Transaction } from '$lib/utils/operations.utils';
+import { applier, executor, SMART, Transaction } from '$lib/utils/operations.utils';
 import { EDITABLE, TRANSFORMS_TEXT } from '$lib/utils/capabilities';
 
 /**
@@ -32,7 +32,8 @@ export class Text extends Block {
     /** @type {import('../block.svelte').BlockManifest} */
     static manifest = {
         type: 'text',
-        capabilities: [EDITABLE, TRANSFORMS_TEXT]
+        capabilities: [EDITABLE, TRANSFORMS_TEXT],
+        dataTypes: ['text/plain', 'text']
     }
     
     /** 
@@ -64,8 +65,7 @@ export class Text extends Block {
         this.trine("edit", this.prepareEdit, this.edit, this.applyEdit);
     }
     
-    /** @type {import('../systems/textSystem.svelte').TextSystem?} */
-    system = $derived(this.codex?.systems.get('text') || null);
+
     
     /** @type {HTMLSpanElement?} */
     element = $state(null);
@@ -221,19 +221,6 @@ export class Text extends Block {
             // }
         }
     }
-
-    /**
-     * Prepares the transformation of the text block.
-     * @param {{
-     *  content: string,
-     *  offset: number,
-     * }} data 
-     */
-    prepareTransform(data) {
-        
-
-    }
-
 
     
 
@@ -460,14 +447,25 @@ export class Text extends Block {
     /** @type {import('$lib/utils/operations.utils').Executor<EditData>} */
     edit = executor(this, data => this.prepareEdit(data));
 
-    /** @param {EditData} data  */
-    applyEdit = data => {
-        let {text = "", from, to} = data;
+    // /** @param {EditData} data  */
+    // applyEdit = data => {
+    //     let {text = "", from, to} = data;
+    //     to = to ?? from;
+    //     this.text = this.text.slice(0, from) + text + this.text.slice(to);
+    //     this.resync();
+    //     this.refresh();
+    // }
+
+    applyEdit = applier(op => {
+        /** @type {EditData} */
+        let {text = "", from, to} = op.data;
+        this.log('Applying edit:', { text, from, to });
+        console.trace();
         to = to ?? from;
         this.text = this.text.slice(0, from) + text + this.text.slice(to);
         this.resync();
         this.refresh();
-    }
+    })
 }
 
 

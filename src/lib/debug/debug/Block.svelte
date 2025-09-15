@@ -2,13 +2,39 @@
     import Block from "./Block.svelte";
     /** @type {{block: (import('$lib/states/block.svelte').Block)|(import('$lib/states/block.svelte').MegaBlock), codex: import('$lib/states/codex.svelte').Codex}}*/
     let {block, codex} = $props();
+
+    let showTooltip = $state(false);
+    let hoverTimeout = $state(null);
+
+    function handleMouseEnter() {
+        hoverTimeout = setTimeout(() => {
+            showTooltip = true;
+        }, 1000);
+    }
+
+    function handleMouseLeave() {
+        if (hoverTimeout) {
+            clearTimeout(hoverTimeout);
+            hoverTimeout = null;
+        }
+        showTooltip = false;
+    }
 </script>
 
 {#if block}
 <div class="_">
     <div class="block" class:selected={block.selected}>
         <span class="i">#{block.index}</span>
-        <span class="type">{block.type}</span>
+        <span class="type"
+              role="button"
+              tabindex="0"
+              onmouseenter={handleMouseEnter}
+              onmouseleave={handleMouseLeave}>
+            {block.type}
+            {#if showTooltip}
+            <div class="tooltip">ID: {block.id}</div>
+            {/if}
+        </span>
         <p class="debug">{block.debug}</p>
     </div>
     <div class="children">
@@ -41,6 +67,32 @@
             padding: 10px;
             text-transform: uppercase;
             transition: all 0.3s ease-in-out;
+            position: relative;
+
+            .tooltip {
+                position: absolute;
+                top: 100%;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #333;
+                color: white;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 11px;
+                white-space: nowrap;
+                z-index: 1000;
+                margin-top: 4px;
+
+                &::before {
+                    content: '';
+                    position: absolute;
+                    bottom: 100%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    border: 4px solid transparent;
+                    border-bottom-color: #333;
+                }
+            }
         }
         .debug {
             color: hsla(0, 0%, 0%, 0.5);
