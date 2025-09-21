@@ -7,6 +7,7 @@ import { ParagraphBlockInsertion } from "./operations/paragraph.ops";
 import { BlocksRemoval } from "./operations/block.ops";
 import { SMART, Operation, GETDELTA } from "$lib/utils/operations.utils";
 import { EDITABLE, INPUTABLE, MERGEABLE, TRANSFORMS_TEXT } from "$lib/utils/capabilities";
+import ParagraphC from "$lib/components/Paragraph.svelte";
 
 /** 
 * @typedef {(import('./text.svelte').TextObject|import('./linebreak.svelte').LinebreakObject)[]} ParagraphContent
@@ -39,12 +40,10 @@ export class Paragraph extends MegaBlock {
     /** @type {import("../block.svelte").MegaBlockManifest} */
     static manifest = {
         type: 'paragraph',
-        blocks: {
-            linebreak: Linebreak,
-            text: Text,
-        },
+        blocks: [ Text, Linebreak ],
         strategies: paragraphStrategies,
-        capabilities: [ MERGEABLE, INPUTABLE ]
+        capabilities: [ MERGEABLE, INPUTABLE ],
+        component: ParagraphC
     }
 
     /**
@@ -61,7 +60,7 @@ export class Paragraph extends MegaBlock {
             this.children = init.children.map((b) => {
                 const { type, init = {} } = b;
 
-                const B = this.blocks[type];
+                const B = this.blocks.find(B => B.manifest.type === type);
                 if (!B) throw new Error(`Block type "${type}" not found in paragraph.`);
                 return new B(this.codex, init);
             }).filter(b => b instanceof Linebreak || b instanceof Text);
@@ -667,27 +666,6 @@ export class Paragraph extends MegaBlock {
         }
     }
 
-    /**
-     * @param {{start: number, end: number}} hint 
-     */
-    toDOM(hint) {
-        let { start, end } = hint;
-        
-        if (start < 0) start = 0;
-        if (end > this.length) end = this.length;
-        const data = this.getFocusData(new Focus(start, end));
-        return {
-            start: {
-                node: data?.startElement || this.element,
-                offset: data?.start || 0
-            },
-            end: {
-                node: data?.endElement || this.element,
-                offset: data?.end || 0
-            }
-        };
-
-    }
 
     /** 
      * @param {{start?: number, end?: number, offset?: number}} position

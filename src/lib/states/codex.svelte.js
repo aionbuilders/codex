@@ -1,41 +1,21 @@
 /**
-* @typedef {Object} CodexInit
+ * @typedef {Object} CodexInit
+* @property {import('../presets/preset').Preset?} [preset] - Preset to be applied to the codex.
 * @property {Object<string, import('svelte').Component>} [components] - Initial blocks to be added to the codex.
-* @property {(codex: Codex) => void} [onInit] - Callback function to be called when the codex is initialized.
+* @property {Array<typeof import('./block.svelte').Block>} [blocks] - Initial blocks to be added to the codex.
 * @property {import('./strategy.svelte').Strategy[]} [strategies] - Initial strategies to be added to the codex.
+* @property {import('./system.svelte').System[]} [systems] - Initial systems to be added to the codex.
+* @property {string[]} [omit] - List of block, strategies, systems to omit from the codex.
 */
 
 import CodexComponent from '$lib/components/Codex.svelte';
-import TextComponent from '$lib/components/Text.svelte';
-import ParagraphComponent from '$lib/components/Paragraph.svelte';
 import { MegaBlock } from './block.svelte';
-import { Paragraph } from './blocks/paragraph.svelte';
 import { CodexSelection } from './selection.svelte';
-import LinebreakComponent from '$lib/components/Linebreak.svelte';
-import { multiBlockBackspaceStrategy, codexStrategies } from './strategies/codex.strategies';
+import { codexStrategies } from './strategies/codex.strategies';
 import { Transaction } from '$lib/utils/operations.utils';
 import { History } from './history.svelte';
-import { ParagraphSystem } from './systems/paragraph.system.svelte';
-import { DataTransformSystem } from './systems/codex.system.svelte';
 import { Focus } from '$lib/values/focus.values';
-
-/** @typedef {import('$lib/values/focus.values').Focus} Focus */
-
-export const initialComponents = {
-    codex: CodexComponent,
-    text: TextComponent,
-    paragraph: ParagraphComponent,
-    linebreak: LinebreakComponent
-}
-
-export const initialBlocks = [
-    Paragraph,
-]
-
-export const initialSystems = [
-    new ParagraphSystem(0),
-    new DataTransformSystem(1),
-]
+import { MinimalPreset } from '$lib/presets';
 
 export const initialStrategies = [
     ...codexStrategies
@@ -46,13 +26,10 @@ export class Codex extends MegaBlock {
     /** @type {import("./block.svelte").MegaBlockManifest} */
     static manifest = {
         type: 'codex',
-        blocks: {
-            paragraph: Paragraph
-        },
+        blocks: [],
         strategies: initialStrategies,
-        systems: [
-            ...initialSystems
-        ],
+        systems: [],
+        component: CodexComponent
     }
 
     /**
@@ -62,10 +39,22 @@ export class Codex extends MegaBlock {
     constructor(init = {}) {
         super(null);
         
+        /** @type {CodexInit} */
+        this.init = init;
+
+        /** @type {import('../presets/preset').Preset | null} */
+        this.preset = init.preset || init.preset === null ? init.preset : MinimalPreset;
+
         /** @type {Object<string, import('svelte').Component>} */
-        this.components = init.components || initialComponents;
+        this.components = init.components || {}
         this.selection = new CodexSelection(this);
         this.history = new History();
+
+        this.omited = {
+            blocks: init.omit?.filter(name => name.startsWith('block:')).map(name => name.replace('block:', '')) || [],
+            strategies: init.omit?.filter(name => name.startsWith('strategy:')).map(name => name.replace('strategy:', '')) || [],
+            systems: init.omit?.filter(name => name.startsWith('system:')).map(name => name.replace('system:', '')) || [],
+        }
         
         $effect.root(() => {
             $effect(() => {
@@ -78,8 +67,22 @@ export class Codex extends MegaBlock {
                 }
             })
         })
+
+        this.preset?.debug();
     }
-    
+
+    get blocks() {
+        return [...(this.preset?.blocks.filter(b => !this.omited.blocks.includes(b.manifest.type) && !(this.init.blocks || []).find(b2 => b2.manifest.type === b.manifest.type)) || []), ...(this.init?.blocks || [])];
+    }
+
+    get strategies() {
+        return this.init.strategies || super.strategies;
+    }
+
+    get systems() {
+        return [...(this.preset?.systems.filter(s => !this.omited.systems.includes(s.manifest.type) && !(this.init.systems || []).find(s2 => s2.manifest.type === s.manifest.type)) || []).map(S => new S()), ...(this.init?.systems || [])];
+    }
+
     /** @type {HTMLDivElement?} */
     element = $state(null);
     
@@ -221,4 +224,11 @@ export class Codex extends MegaBlock {
      */
     setRange = focus => this.selection.setRange(focus.start.node, focus.start.offset, focus.end?.node || focus.start.node, focus.end?.offset || focus.start.offset);
 
+    /** @param {Omit<CodexInit, 'preset'>} init */
+    static blank(init = {}) {
+        return new Codex({
+            preset: null,
+            ...init
+        })
+    }
 }

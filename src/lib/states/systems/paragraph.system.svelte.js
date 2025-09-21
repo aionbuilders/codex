@@ -3,8 +3,7 @@ import { System } from "../system.svelte";
 
 export class ParagraphSystem extends System {
     static manifest = {
-        name: 'paragraph',
-        
+        name: '@codex/paragraph',
     }
 
     /**

@@ -17,12 +17,13 @@ import { Codex } from './codex.svelte';
 * @property {string} type - The type of block (e.g., "paragraph", "text", "linebreak").
 * @property {Object<string, BlockOperation>} [operations] - A map of operation types to their handlers.
 * @property {(import('./capability.svelte').Capability|symbol)[]} [capabilities] - The capabilities of the block.
+* @property {import('svelte').Component?} [component] - The Svelte component associated with the block.
 * @property {string[]} [dataTypes] - The data types supported by the block (e.g., "text/plain", "text/html").
 */
 
 /**
 * @typedef {BlockManifest & {
-*   blocks: Object<string, BlockConstructor>;
+*   blocks: Array<BlockConstructor>;
 *   strategies?: import('./strategy.svelte').Strategy[];
 *   systems?: import('./system.svelte').System[];
 * }} MegaBlockManifest
@@ -101,7 +102,7 @@ export class Block {
     }
 
     /** @type {import('svelte').Component?} */
-    component = $derived(this.codex?.components[this.type] || null);
+    component = $derived(this.codex?.components[this.type] || this.manifest.component || null);
 
     unlink = $derived(this.codex?.recursive.includes(this) === false);
     
@@ -146,7 +147,7 @@ export class Block {
         else return [];
     });
 
-    /** @type {({start: number, end: number} & Object) | null | undefined} */
+    /** @type {({start: number, end: number} & Object<any, any>) | null | undefined} */
     selection = $derived({
         start: 0,
         end: 0,
@@ -256,51 +257,6 @@ export class Block {
         }
         
         return 'before'; // Fallback
-    }
-
-
-    /**
-     * 
-     * @param {any} relativePos 
-     * @returns {{
-     *  start?: {
-     *   node: Node,
-     *   offset: number
-     *  },
-     *  end?: {
-     *   node: Node,
-     *   offset: number
-     *  }
-     * }}
-     */
-    toDOM(relativePos) {
-        if (!this.element) return {};
-        
-        // Cas simple : avant/après le bloc
-        if (relativePos === 'before' || relativePos === 'after') return {};
-        
-        // Cas complexe : on avait capturé une sélection
-        if (relativePos?.type === 'selection') {
-            const startNode = this.getNodeFromPath(relativePos.startPath);
-            const endNode = this.getNodeFromPath(relativePos.endPath);
-            
-            return {
-                ...(startNode ? {
-                    start: {
-                        node: startNode,
-                        offset: relativePos.startOffset
-                    },
-                } : {}),
-                ...(endNode ? {
-                    end: {
-                        node: endNode,
-                        offset: relativePos.endOffset
-                    }
-                } : {})
-            };
-        }
-        
-        return {};
     }
 
 
@@ -465,7 +421,7 @@ export class MegaBlock extends Block {
         type: 'mega-block',
         operations: {},
         capabilities: [],
-        blocks: {}
+        blocks: []
     };
 
     /** @param {import('./codex.svelte').Codex?} codex @param {BlockInit} init*/
@@ -487,7 +443,7 @@ export class MegaBlock extends Block {
         return this.manifest?.systems || [];
     }
 
-    /** @type {Record<string, new (...args: any[]) => T>} */
+    /** @type {Array<new (...args: any[]) => T>} */
     get blocks() {
         return this.manifest.blocks;
     }
@@ -498,7 +454,7 @@ export class MegaBlock extends Block {
 
     get dataTypes() {
         const types = new Set(this.manifest.dataTypes);
-        Object.values(this.blocks).forEach(B => {
+        this.blocks.forEach(B => {
             if (B.manifest.dataTypes) B.manifest.dataTypes.forEach(t => types.add(t));
         });
         return types;
@@ -633,7 +589,8 @@ export class MegaBlock extends Block {
 
         /** @type {T[]} */
         const blocks = data.blocks.map(({type, init}) => {
-            const B = this.blocks[type];
+            this.log(this.blocks)
+            const B = this.blocks.find(B => B.manifest.type === type);
             if (!B) throw new Error(`Block type "${type}" not found in mega block.`);
             return new B(this instanceof Codex ? this : this.codex, init);
         }).filter(b => b instanceof Block);
@@ -661,7 +618,8 @@ export class MegaBlock extends Block {
         const data = op.data;
 
         const blocks = data.blocks?.map(({type, init}) => {
-            const B = this.blocks[type];
+            
+            const B = this.blocks.find(B => B.manifest.type === type);
             if (!B) throw new Error(`Block type "${type}" not found in mega block.`);
             return new B(this instanceof Codex ? this : this.codex, init);
         }).filter(b => b instanceof Block) || [];

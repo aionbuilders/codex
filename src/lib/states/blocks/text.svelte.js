@@ -4,6 +4,7 @@ import { TextDeleteOperation, TextEdition, TextInsertOperation } from './operati
 import { Focus } from '$lib/values/focus.values';
 import { applier, executor, SMART, Transaction } from '$lib/utils/operations.utils';
 import { EDITABLE, TRANSFORMS_TEXT } from '$lib/utils/capabilities';
+import TextC from '$lib/components/Text.svelte';
 
 /**
 * @typedef {import('../block.svelte').BlockInit & {
@@ -33,7 +34,8 @@ export class Text extends Block {
     static manifest = {
         type: 'text',
         capabilities: [EDITABLE, TRANSFORMS_TEXT],
-        dataTypes: ['text/plain', 'text']
+        dataTypes: ['text/plain', 'text'],
+        component: TextC
     }
     
     /** 
@@ -278,7 +280,7 @@ export class Text extends Block {
     }
     
     
-    /** @returns {TextObject} */
+    // /** @returns {TextObject} */
     toJSON() {
         return {
             ...super.toJSON(),
@@ -318,28 +320,6 @@ export class Text extends Block {
             end: this.end
         };
     }
-
-    /** @param {{start: number, end: number}} hint */
-    toDOM(hint) {
-        const text = this.element?.firstChild;
-        if (text && text.nodeType === Node.TEXT_NODE) {
-            return {
-                ...(hint.start ? {
-                    start: {
-                        node: text,
-                        offset: hint?.start ?? 0
-                    }
-                } : {}),
-                ...(hint.end ? {
-                    end: {
-                        node: text,
-                        offset: hint?.end ?? this.text.length
-                    }
-                } : {})
-            };
-        }
-    }
-
     
 
 

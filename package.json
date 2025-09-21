@@ -9,7 +9,7 @@
 		"prepack": "svelte-kit sync && svelte-package && publint",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json --watch",
-		"generate-types": "tsc",
+		"generate-types": "tsc --project ./tsc/tsconfig.json",
 		"prepublishOnly": "npm run build && npm run generate-types",
 		"release:alpha": "npm version prerelease &&  npm publish --tag alpha",
 		"release:stable": "npm version major && npm publish"
@@ -52,6 +52,10 @@
 		"./components": {
 			"types": "./dist/components.d.ts",
 			"svelte": "./dist/components.js"
+		},
+		"./presets": {
+			"types": "./dist/presets.d.ts",
+			"svelte": "./dist/presets.js"
 		}
 	},
 	"peerDependencies": {

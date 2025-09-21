@@ -40,7 +40,7 @@ import { System } from "../system.svelte";
 
 export class DataTransformSystem extends System {
     static manifest = {
-        name: 'data-transform',
+        name: '@codex/data-transform',
         handlers: ['input']
     }
 
@@ -50,7 +50,8 @@ export class DataTransformSystem extends System {
         this.handler('input', this.handleInput.bind(this));
     }
 
-    /** @param {any} raw
+    /** 
+     * @param {any} raw
      * @returns {TransformedData|null}
      */
     handleInput(raw) {

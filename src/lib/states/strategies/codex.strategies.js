@@ -79,7 +79,7 @@ const replace = (codex, data) => {
  */
 
 export const multiBlockBackspaceStrategy = new Strategy(
-    'codex-delete-strategy',
+    '@codex/delete-strategy',
     /** @param {CodexKeydownContext} context */
     (codex, context) => {
         if (!['Delete', 'Backspace', 'Enter'].includes(context.event.key)) return false;
@@ -101,7 +101,7 @@ export const multiBlockBackspaceStrategy = new Strategy(
  */
 
 export const beforeInputStrategy = new Strategy(
-    'codex-beforeinput-strategy',
+    '@codex/beforeinput-strategy',
     () => true,
     (codex, context) => {
         /** @type {CodexBeforeInputContext} */

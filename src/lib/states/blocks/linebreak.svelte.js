@@ -1,6 +1,8 @@
+import LinebreakC from "$lib/components/Linebreak.svelte";
 import { Focus } from "$lib/values/focus.values";
 import { Block, MegaBlock } from "../block.svelte";
 import { Text } from "./text.svelte";
+
 
 /**
  * @typedef {import('../block.svelte').BlockInit & {
@@ -16,7 +18,8 @@ export class Linebreak extends Block {
     /** @type {import("../block.svelte").BlockManifest} */    
     static manifest = {
         type: 'linebreak',
-        dataTypes: ['text/linebreak']
+        dataTypes: ['text/linebreak'],
+        component: LinebreakC
     }
 
     /** @param {import('../codex.svelte').Codex} codex @param {import("../block.svelte").BlockInit} [init] */
