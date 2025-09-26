@@ -1,8 +1,8 @@
-import { INPUTABLE, MERGEABLE } from "$lib/utils/capabilities";
-import { Focus } from "$lib/values/focus.values";
+import { INPUTABLE, MERGEABLE } from "../../utils/capabilities";
+import { Focus } from "../../values/focus.values";
 import { Strategy } from "../strategy.svelte";
-import { until } from "$lib/utils/utils";
-import { GETDELTA } from "$lib/utils/operations.utils";
+import { until } from "../../utils/utils";
+import { GETDELTA } from "../../utils/operations.utils";
 
 
 /**
@@ -20,7 +20,7 @@ const replace = (codex, data) => {
 
     const isThereSelectedBlocksBeforeEnd = betweenBlocks.length || (startBlock && endBlock && startBlock !== endBlock);
 
-    /** @type {import('$lib/utils/operations.utils').Operation[]} */
+    /** @type {import('../../utils/operations.utils').Operation[]} */
     const ops = [];
     if (endBlock && endBlock !== startBlock) ops.push(...(endBlock ? (endBlock.prepare('remove')): []));
     if (betweenBlocks.length) betweenBlocks.forEach(b => {

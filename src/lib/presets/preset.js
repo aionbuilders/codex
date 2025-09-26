@@ -1,10 +1,8 @@
-import { System } from '$lib/states/system.svelte';
-
 /**
  * @typedef {{
  *  name?: string,
- *  blocks?: Array<typeof import('$lib/states/block.svelte').Block>,
- *  systems?: Array<typeof import('$lib/states/system.svelte').System>,
+ *  blocks?: Array<typeof import('../states/block.svelte').Block>,
+ *  systems?: Array<typeof import('../states/system.svelte').System>,
  *  extends?: Preset,
  * }} PresetInit
  */
@@ -20,7 +18,7 @@ export class Preset {
         return this.init.name || 'custom-preset';
     }
 
-    /** @returns {Array<typeof import('$lib/states/block.svelte').Block>} */
+    /** @returns {Array<typeof import('../states/block.svelte').Block>} */
     get blocks() {
         const blocks = new Set(this.init.blocks || []);
         
@@ -33,7 +31,7 @@ export class Preset {
         return Array.from(blocks);
     }
 
-    /** @returns {Array<typeof import('$lib/states/system.svelte').System>} */
+    /** @returns {Array<typeof import('../states/system.svelte').System>} */
     get systems() {
         const systems = new Set(this.init.systems || []);
 

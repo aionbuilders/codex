@@ -1,5 +1,5 @@
 /**
- * @typedef {Object} CodexInit
+* @typedef {Object} CodexInit
 * @property {import('../presets/preset').Preset?} [preset] - Preset to be applied to the codex.
 * @property {Object<string, import('svelte').Component>} [components] - Initial blocks to be added to the codex.
 * @property {Array<typeof import('./block.svelte').Block>} [blocks] - Initial blocks to be added to the codex.
@@ -8,14 +8,14 @@
 * @property {string[]} [omit] - List of block, strategies, systems to omit from the codex.
 */
 
-import CodexComponent from '$lib/components/Codex.svelte';
+import CodexComponent from '../components/Codex.svelte';
 import { MegaBlock } from './block.svelte';
 import { CodexSelection } from './selection.svelte';
 import { codexStrategies } from './strategies/codex.strategies';
-import { Transaction } from '$lib/utils/operations.utils';
+import { Transaction } from '../utils/operations.utils';
 import { History } from './history.svelte';
-import { Focus } from '$lib/values/focus.values';
-import { MinimalPreset } from '$lib/presets';
+import { Focus } from '../values/focus.values';
+import { MinimalPreset } from '../presets';
 
 export const initialStrategies = [
     ...codexStrategies
@@ -34,10 +34,10 @@ export class Codex extends MegaBlock {
 
     /**
     * Creates an instance of Codex.
-    * @param {CodexInit} [init] - Initial configuration for the codex.
+    * @param {CodexInit & import('./block.svelte').BlockInit} [init] - Initial configuration for the codex.
     */
     constructor(init = {}) {
-        super(null);
+        super(null, init);
         
         /** @type {CodexInit} */
         this.init = init;
@@ -56,6 +56,9 @@ export class Codex extends MegaBlock {
             systems: init.omit?.filter(name => name.startsWith('system:')).map(name => name.replace('system:', '')) || [],
         }
         
+
+        
+
         $effect.root(() => {
             $effect(() => {
                 if (this.element) {
@@ -68,10 +71,11 @@ export class Codex extends MegaBlock {
             })
         })
 
-        this.preset?.debug();
+        this.$init();
     }
 
     get blocks() {
+        console.log('Codex blocks:', this.preset?.blocks, this.init?.blocks);
         return [...(this.preset?.blocks.filter(b => !this.omited.blocks.includes(b.manifest.type) && !(this.init.blocks || []).find(b2 => b2.manifest.type === b.manifest.type)) || []), ...(this.init?.blocks || [])];
     }
 
@@ -163,10 +167,10 @@ export class Codex extends MegaBlock {
     /** @param {KeyboardEvent} e */
     onkeydown = e => this.handleEvent(e, 'onkeydown', 'keydown');
 
-    /** @param {import('$lib/utils/operations.utils').Operation[]} ops  */
+    /** @param {import('../utils/operations.utils').Operation[]} ops  */
     tx = (ops) => new Transaction(ops, this)
 
-    /** @param {import('$lib/utils/operations.utils').Operation[]} ops  */
+    /** @param {import('../utils/operations.utils').Operation[]} ops  */
     effect = (ops) => {
         const current = this.history.current;
 
@@ -230,5 +234,23 @@ export class Codex extends MegaBlock {
             preset: null,
             ...init
         })
+    }
+
+    values = $derived({
+        text: this.children.map(c => c.values.text).join('\n\n'),
+        json: { type: 'codex', children: this.children.map(c => c.values.json), root: true }
+    })
+
+
+    /**
+     * Helper to create input data for codex
+     * @param {Array<any>} children - Array of child blocks or data
+     * 
+     */
+    static data(children = [], rest = {}) {
+        return {
+            ...super.data(children, rest),
+            root: true,
+        }
     }
 }

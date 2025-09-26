@@ -1,4 +1,4 @@
-import { Paragraph } from "$lib/blocks";
+import { Paragraph } from "../blocks";
 import { System } from "../system.svelte";
 
 export class ParagraphSystem extends System {

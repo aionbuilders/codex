@@ -1,14 +1,14 @@
-import { Operation } from "$lib/utils/operations.utils";
+import { Operation } from "../../../utils/operations.utils";
 
 /**
  * @typedef {Object} BlocksInsertionData
- * @property {import('$lib/states/block.svelte').BlockData[]} [blocks]
+ * @property {import('../../../states/block.svelte').BlockData[]} [blocks]
  * @property {number} [offset]
  */
 
 export class BlocksInsertion extends Operation {
     /**
-     * @param {import('$lib/states/block.svelte').Block} block
+     * @param {import('../../../states/block.svelte').Block} block
      * @param {BlocksInsertionData} data
      */
     constructor(block, data) {
@@ -34,7 +34,7 @@ export class BlocksInsertion extends Operation {
 
 export class BlocksRemoval extends Operation {
     /**
-     * @param {import('$lib/states/block.svelte').Block} block
+     * @param {import('../../../states/block.svelte').Block} block
      * @param {BlocksRemovalData} data
      */
     constructor(block, data) {
@@ -52,12 +52,12 @@ export class BlocksRemoval extends Operation {
  * @typedef {Object} BlocksReplacementData
  * @property {number} from - The starting offset of the replacement.
  * @property {number} to - The ending offset of the replacement.
- * @property {import('$lib/states/block.svelte').BlockData[]} [blocks] - The blocks to replace.
+ * @property {import('../../../states/block.svelte').BlockData[]} [blocks] - The blocks to replace.
  */
 
 export class BlocksReplacement extends Operation {
     /**
-     * @param {import('$lib/states/block.svelte').Block} block
+     * @param {import('../../../states/block.svelte').Block} block
      * @param {BlocksReplacementData} data
      */
     constructor(block, data) {

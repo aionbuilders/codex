@@ -1,5 +1,5 @@
-import { Strategy } from "$lib/states/strategy.svelte";
-import { Focus } from "$lib/values/focus.values";
+import { Strategy } from "../../../states/strategy.svelte";
+import { Focus } from "../../../values/focus.values";
 import { Linebreak } from "../linebreak.svelte";
 import { Text } from "../text.svelte";
 

@@ -17,8 +17,6 @@
 
 <style lang="scss">
     p {
-
-        background: hsla(0, 0%, 0%, 0.05);
         margin-bottom: 1rem;
     }
 </style>

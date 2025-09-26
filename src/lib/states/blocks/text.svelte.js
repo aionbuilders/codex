@@ -1,10 +1,10 @@
 import { untrack } from 'svelte';
 import { Block } from '../block.svelte';
 import { TextDeleteOperation, TextEdition, TextInsertOperation } from './operations/text.ops';
-import { Focus } from '$lib/values/focus.values';
-import { applier, executor, SMART, Transaction } from '$lib/utils/operations.utils';
-import { EDITABLE, TRANSFORMS_TEXT } from '$lib/utils/capabilities';
-import TextC from '$lib/components/Text.svelte';
+import { Focus } from '../../values/focus.values';
+import { applier, executor, SMART, Transaction } from '../../utils/operations.utils';
+import { EDITABLE, TRANSFORMS_TEXT } from '../../utils/capabilities';
+import TextC from '../../components/Text.svelte';
 
 /**
 * @typedef {import('../block.svelte').BlockInit & {
@@ -42,10 +42,7 @@ export class Text extends Block {
     * @param {import('../codex.svelte').Codex} codex
     * @param {TextInit} init */
     constructor(codex, init = {}) {
-        super(codex, {
-            id: init.id,
-            metadata: init.metadata || {}
-        });
+        super(codex, init);
     
         this.text = init.text || '';
         this.bold = init.bold || false;
@@ -65,6 +62,8 @@ export class Text extends Block {
         });
         
         this.trine("edit", this.prepareEdit, this.edit, this.applyEdit);
+
+        this.$init();
     }
     
 
@@ -78,8 +77,6 @@ export class Text extends Block {
     start = $derived(this.before ? (this.before.end ?? 0) : 0);
     /** @type {Number} */
     end = $derived(this.start + (this.text.length || 0));
-    
-    debug = $derived(`${this.text} (${this.selection?.start}->${this.selection?.end})`);
     
     bold = $state(false);
     italic = $state(false);
@@ -124,7 +121,7 @@ export class Text extends Block {
     
     selectionDebug = $derived(`${this.selection ? `Selection: ${this.selection.start} - ${this.selection.end} (${this.selection.length})` : 'No selection'}`);
     
-    /** @type {import('$lib/utils/block.utils').BlockListener<KeyboardEvent>} */
+    /** @type {import('../../utils/block.utils').BlockListener<KeyboardEvent>} */
     onkeydown = (e, ascend) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -183,7 +180,7 @@ export class Text extends Block {
         }
     }
     
-    /** @type {import('$lib/utils/block.utils').BlockListener<InputEvent>} */
+    /** @type {import('../../utils/block.utils').BlockListener<InputEvent>} */
     oninput = e => {
         this.refresh();
     }
@@ -193,7 +190,7 @@ export class Text extends Block {
     }
     
     
-    /** @type {import('$lib/utils/block.utils').BlockListener<InputEvent>} */
+    /** @type {import('../../utils/block.utils').BlockListener<InputEvent>} */
     onbeforeinput = e => {
         if (e.inputType === 'insertText' && e.data) {
             let {start, end} = this.selection || {};
@@ -218,9 +215,6 @@ export class Text extends Block {
     resync = () => {
         if (this.element) {
             this.element.textContent = this.text;
-            // if (!this.element.textContent.trim()) {
-            //     this.element.textContent = '';
-            // }
         }
     }
 
@@ -358,7 +352,7 @@ export class Text extends Block {
         return Math.max(0, Math.min(index, this.text.length));
     }
 
-    /** @param {EditData|import('$lib/utils/operations.utils').SMART} data  */
+    /** @param {EditData|import('../../utils/operations.utils').SMART} data  */
     normalizeEditParams = (data) => {
         const isSmartMode = data === SMART;
         
@@ -386,7 +380,7 @@ export class Text extends Block {
     * @param {{
     *   from: number,
     *   to: number
-    * }|import('$lib/utils/operations.utils').SMART} [data=SMART]
+    * }|import('../../utils/operations.utils').SMART} [data=SMART]
     */
     getSplittingData = (data) => {
         if (!data) data = SMART;
@@ -413,7 +407,7 @@ export class Text extends Block {
         };
     }
 
-    /** @param {EditData|import('$lib/utils/operations.utils').SMART} [data=SMART]  */
+    /** @param {EditData|import('../../utils/operations.utils').SMART} [data=SMART]  */
     prepareEdit = data => {
         if (!this.codex) return [];
         if (!data) data = SMART;
@@ -424,17 +418,8 @@ export class Text extends Block {
         ];
     }
 
-    /** @type {import('$lib/utils/operations.utils').Executor<EditData>} */
+    /** @type {import('../../utils/operations.utils').Executor<EditData>} */
     edit = executor(this, data => this.prepareEdit(data));
-
-    // /** @param {EditData} data  */
-    // applyEdit = data => {
-    //     let {text = "", from, to} = data;
-    //     to = to ?? from;
-    //     this.text = this.text.slice(0, from) + text + this.text.slice(to);
-    //     this.resync();
-    //     this.refresh();
-    // }
 
     applyEdit = applier(op => {
         /** @type {EditData} */
@@ -446,6 +431,57 @@ export class Text extends Block {
         this.resync();
         this.refresh();
     })
+
+
+    /**
+     * @param {{
+     *  text?: string,
+     *  styles?: Styles
+     * }} data 
+     * @returns 
+     */
+    $in(data) {
+        this.log({data});
+        console.log("helloo");
+        data.text && (this.text = data.text);
+        this.log('Text after input data:', this.text);
+        data.styles && Object.entries(data.styles).forEach(([key, value]) => {
+            if (['bold', 'italic', 'underline', 'strikethrough', 'code'].includes(key) && typeof value === 'boolean') {
+                this[key] = value;
+            }
+        });
+        
+        this.log(this);
+        // this.resync();
+        // this.refresh();
+    }
+
+
+    values = $derived({
+        text: this.text,
+        json: {
+            text: this.text,
+            styles: this.getStyles()
+        }
+    });
+
+    debug = $derived(`${this.text} (${this.selection?.start}->${this.selection?.end})`);
+
+
+    /**
+     * @param {{
+     *  text: string,
+     *  styles?: Styles
+     * }|string} data 
+     * @returns 
+     */
+    static data(data, rest = {}) {
+        if (typeof data === 'string') data = { text: data };
+        return {
+            ...super.data(rest),
+            ...data
+        }
+    }
 }
 
 

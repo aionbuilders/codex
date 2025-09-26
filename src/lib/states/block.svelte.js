@@ -4,7 +4,7 @@
 * @property {string[]} params - Parameters for the operation, such as coordinates or block IDs.
 * @property {string} handler - The name of the handler function to execute for this operation.
 */
-import { applier, preparer } from '$lib/utils/operations.utils';
+import { applier, preparer } from '../utils/operations.utils';
 import { BlocksInsertion, BlocksRemoval, BlocksReplacement } from './blocks/operations/block.ops';
 import { Codex } from './codex.svelte';
 
@@ -41,9 +41,14 @@ import { Codex } from './codex.svelte';
  */
 
 /**
+ * @typedef {any} InData
+ */
+
+/**
  * @typedef {Object} BlockInit
  * @property {string} [id] - The unique identifier for the block.
  * @property {Object} [metadata] - Metadata associated with the block.
+ * @property {InData} [in] - Initial values for the block.
  */
 
 /**
@@ -51,6 +56,8 @@ import { Codex } from './codex.svelte';
  * @property {string} type - The type of the block.
  * @property {BlockInit & Object<string, any>} [init] - The initialization data for the block.
  */
+
+
 
 
 export class Block {
@@ -67,6 +74,7 @@ export class Block {
         this.codex = codex;
         this.id = init.id || crypto.randomUUID();
         this.metadata = init.metadata || {};
+        this.in = init.in || {};
 
         /**
          * A set of methods available on the block.
@@ -76,7 +84,7 @@ export class Block {
 
         /**
          * A set of preparators available on the block.
-         * @type {Map<string, (function(...any): import('$lib/utils/operations.utils').Operation[])>}
+         * @type {Map<string, (function(...any): import('../utils/operations.utils').Operation[])>}
          */
         this.preparators = new Map();
 
@@ -86,7 +94,20 @@ export class Block {
          */
         this.executors = new Map();
 
+        /** 
+         * A set of exporters available on the block.
+         * @type {Map<string, Function>}
+         */
+        this.exporters = new Map();
+
         this.method('delete', () => this.rm());
+
+
+        
+    }
+
+    $init() {
+        if (this.in?.type === this.manifest.type) this.$in(this.in);
     }
 
     get type() {
@@ -159,7 +180,7 @@ export class Block {
     length = $derived(0);
 
     /**
-    * @param {import('$lib/values/focus.values').Focus} f
+    * @param {import('../values/focus.values').Focus} f
     * @returns {{
     *   startElement: Node,
     *  startOffset: number,
@@ -189,10 +210,19 @@ export class Block {
 
 
 
+    /** @param {String} format @param {Function} callback */
+    exporter = (format, callback) => this.exporters.set(format, callback);
+
+    /** @param {String} format @param  {...any} args */
+    export = (format, ...args) => {
+        const exporter = this.exporters.get(format);
+        if (!exporter) throw new Error(`No exporter found for "${format}" in block "${this.type}".`);
+        return exporter(...args);
+    }
 
 
 
-        /** @param {Node} node */
+    /** @param {Node} node */
     getNodePath(node) {
         const path = [];
         let current = node;
@@ -259,6 +289,9 @@ export class Block {
         return 'before'; // Fallback
     }
 
+
+    /** @type {Object<string, any>} */
+    values = $state({});
 
     /** @type {Object<string, any>} */
     metadata = $state({});
@@ -329,7 +362,7 @@ export class Block {
      * @param {String} name
      * @param {Object?} [data]
      * @param {Object} [metadata]
-     * @returns {import('$lib/utils/operations.utils').Operation[]}
+     * @returns {import('../utils/operations.utils').Operation[]}
      */
     prepare = (name, data, metadata) => {
         const preparator = this.preparators.get(name);
@@ -392,12 +425,18 @@ export class Block {
     }
 
 
-    /** @returns {import('$lib/utils/operations.utils').Operation[]} */
+    /** @returns {import('../utils/operations.utils').Operation[]} */
     prepareDestroy = () => this.parent ? this.parent.prepareRemove({ ids: [this.id] }) : [];
 
     destroy = () => this.codex?.tx(this.prepareDestroy()).execute()
 
 
+    /** 
+     * @param {any} data 
+     */
+    $in(data) {
+        console.warn('Block input handler not implemented:', data);
+    }
 
     /** 
      * @param {Object} data 
@@ -410,6 +449,19 @@ export class Block {
             ...data
         }
     }
+
+    /**
+     * @param {{
+     *  id?: string,
+     *  metadata?: Object<string, any>,
+     * } & Object<string, any>} rest
+     */
+    static data(rest = {}) {
+        return {
+            type: this.manifest.type,
+            ...rest
+        }
+    } 
 }
 
 /**
@@ -643,5 +695,45 @@ export class MegaBlock extends Block {
             ...super.toJSON(),
             children: this.children.map(child => child.toJSON())
         };
+    }
+
+
+
+
+
+    /**
+     * @param {any} data - The actual input data.
+     */
+    $in(data) {
+        if (data.children && Array.isArray(data.children)) {
+            const newChildren = data.children.map((c) => {
+                const B = this.blocks.find(B => B.manifest.type === c.type);
+                if (!B) {
+                    this.log(`Block type "${c.type}" not found in mega block.`);
+                    return null;
+                }
+                return new B(this instanceof Codex ? this : this.codex, {in: c});
+            })
+            this.log('Setting children from input data:', newChildren);
+
+            this.children = newChildren.filter(b => b instanceof Block);
+        }
+        
+    }
+
+
+    /**
+     * @param {Array<any>} children
+     * @param {{
+     *  id?: string,
+     *  metadata?: Object<string, any>,
+     * } & Object<string, any>} rest
+     * @returns
+     */
+    static data(children, rest = {}) {
+        return {
+            ...super.data(rest),
+            children
+        }
     }
 }

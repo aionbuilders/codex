@@ -1,6 +1,6 @@
-import { Operation } from "$lib/utils/operations.utils";
+import { Operation } from "../../../utils/operations.utils";
 
-/** @typedef {import('$lib/states/block.svelte').Block} Block */
+/** @typedef {import('../../../states/block.svelte').Block} Block */
 
 
 /**

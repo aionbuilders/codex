@@ -1,5 +1,5 @@
-import LinebreakC from "$lib/components/Linebreak.svelte";
-import { Focus } from "$lib/values/focus.values";
+import LinebreakC from "../../components/Linebreak.svelte";
+import { Focus } from "../../values/focus.values";
 import { Block, MegaBlock } from "../block.svelte";
 import { Text } from "./text.svelte";
 
@@ -25,6 +25,8 @@ export class Linebreak extends Block {
     /** @param {import('../codex.svelte').Codex} codex @param {import("../block.svelte").BlockInit} [init] */
     constructor(codex, init) {
         super(codex, init);
+
+        this.$init();
     }
     
     /** @type {HTMLBRElement?} */
@@ -38,13 +40,14 @@ export class Linebreak extends Block {
      * @type {Number}
      */
     get offset() {
-        return Array.from(this.element?.parentNode?.childNodes || []).indexOf(this.element) || 0;
+        return this.element ? Array.from(this.element?.parentNode?.childNodes || []).indexOf(this.element) || 0 : 0;
     }
     
     debug = $derived(`(${this.start} - ${this.end}) [${this.offset}]`);
 
     /** @type {Boolean} */
     selected = $derived.by(() => {
+        // @ts-ignore - TypeScript doesn't understand super.selected for derived properties
         if (super.selected) return true;
         if (this.codex?.selection?.isCollapsed && this.codex?.selection?.range) {
             const { startContainer, startOffset } = this.codex.selection.range;
@@ -55,13 +58,13 @@ export class Linebreak extends Block {
         return false;
     });
     
-    /** @type {import('$lib/utils/block.utils').BlockListener<KeyboardEvent>} */
+    /** @type {import('../../utils/block.utils').BlockListener<KeyboardEvent>} */
     onkeydown = (e, ascend) => ascend({
         block: this,
         action: e.key === 'Backspace' ? 'delete' : undefined
     });
 
-    /** @type {import('$lib/utils/block.utils').BlockListener<InputEvent>} */
+    /** @type {import('../../utils/block.utils').BlockListener<InputEvent>} */
     onbeforeinput = (e, ascend) => {
         e.preventDefault();
         ascend({
@@ -104,5 +107,19 @@ export class Linebreak extends Block {
                 endOffset: blockOffset,
             };
         }
+    }
+
+    values = $derived({
+        json: { type: 'linebreak' },
+        text: '\n'
+    })
+
+
+    /** 
+     * Handle input data
+     * @param {any} data 
+     */
+    $in(data) {
+        console.warn('Linebreak input handler not implemented:', data);
     }
 }

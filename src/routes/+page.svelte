@@ -1,9 +1,16 @@
 <script>
     import './global.css';
-    import { Codex } from '$lib/states/codex.svelte';
+    import { Codex } from '$lib';
+    import { Paragraph } from '$lib/blocks';
     import Debug from '$lib/debug/Debug.svelte';
     
-    const codex = new Codex();
+    const data = Codex.data([
+        Paragraph.data("hello\nworld"),
+        Paragraph.data("this is a second paragraph"),
+    ])
+    console.log({data});
+    
+    const codex = new Codex({in: data});
     const Editor = codex.component;
 </script>
 

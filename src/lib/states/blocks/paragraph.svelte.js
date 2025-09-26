@@ -2,12 +2,12 @@ import { Block, MegaBlock } from "../block.svelte";
 import { Linebreak } from "./linebreak.svelte";
 import { Text } from "./text.svelte";
 import { paragraphStrategies } from "./strategies/paragraph.strategies";
-import { Focus } from "$lib/values/focus.values";
+import { Focus } from "../../values/focus.values";
 import { ParagraphBlockInsertion } from "./operations/paragraph.ops";
 import { BlocksRemoval } from "./operations/block.ops";
-import { SMART, Operation, GETDELTA } from "$lib/utils/operations.utils";
-import { EDITABLE, INPUTABLE, MERGEABLE, TRANSFORMS_TEXT } from "$lib/utils/capabilities";
-import ParagraphC from "$lib/components/Paragraph.svelte";
+import { SMART, Operation, GETDELTA } from "../../utils/operations.utils";
+import { EDITABLE, INPUTABLE, MERGEABLE, TRANSFORMS_TEXT } from "../../utils/capabilities";
+import ParagraphC from "../../components/Paragraph.svelte";
 
 /** 
 * @typedef {(import('./text.svelte').TextObject|import('./linebreak.svelte').LinebreakObject)[]} ParagraphContent
@@ -51,10 +51,7 @@ export class Paragraph extends MegaBlock {
     * @param {ParagraphInit} [init]
     */
     constructor(codex, init = {}) {
-        super(codex, {
-            id: init.id,
-            metadata: init.metadata,
-        });
+        super(codex, init);
 
         if (init.children?.length) {
             this.children = init.children.map((b) => {
@@ -65,6 +62,13 @@ export class Paragraph extends MegaBlock {
                 return new B(this.codex, init);
             }).filter(b => b instanceof Linebreak || b instanceof Text);
         }
+
+        this.preparator('merge', this.prepareMerge.bind(this));
+        this.preparator('split', this.prepareSplit.bind(this));
+        this.preparator('transform', this.prepareTransform.bind(this));
+        this.preparator('input', this.prepareInput.bind(this));
+
+        this.$init();
 
         $effect.root(() => {
             $effect(() => {
@@ -106,10 +110,10 @@ export class Paragraph extends MegaBlock {
             })
         });
 
-        this.preparator('merge', this.prepareMerge.bind(this));
-        this.preparator('split', this.prepareSplit.bind(this));
-        this.preparator('transform', this.prepareTransform.bind(this));
-        this.preparator('input', this.prepareInput.bind(this));
+        
+
+
+        
     }
     
     /** @type {HTMLParagraphElement?} */
@@ -143,7 +147,7 @@ export class Paragraph extends MegaBlock {
     end = $derived(this.start + this.length);
 
 
-    /** @type {import('$lib/utils/block.utils').BlockListener<InputEvent>} */
+    /** @type {import('../../utils/block.utils').BlockListener<InputEvent>} */
     onbeforeinput = e => {
         if (e.inputType === 'insertText' && e.data) {
             const selection = this.selection;
@@ -171,7 +175,7 @@ export class Paragraph extends MegaBlock {
         }
     }
     
-    /** @type {import('$lib/utils/block.utils').BlockListener<KeyboardEvent>} */
+    /** @type {import('../../utils/block.utils').BlockListener<KeyboardEvent>} */
     onkeydown = (e, ascend, data) => {
         if (!this.codex) return;
         const selected = this.children?.filter(c => c.selected);
@@ -413,7 +417,7 @@ export class Paragraph extends MegaBlock {
 
     /**
      * Merges the paragraph with the given data.
-     * @param {import('$lib/states/block.svelte').Block} source 
+     * @param {import('../../states/block.svelte').Block} source 
      * @returns 
      */
     merge = source => {
@@ -423,7 +427,7 @@ export class Paragraph extends MegaBlock {
             this.focus(new Focus(offset, offset));
         })
     }
-    /** @param {import('$lib/states/block.svelte').Block} source */
+    /** @param {import('../../states/block.svelte').Block} source */
     prepareMerge = source => {
         const ops = [];
         const children = source?.toInit?.().init?.children || [];
@@ -503,15 +507,15 @@ export class Paragraph extends MegaBlock {
     }
 
     /**
-     * @param {(import('$lib/states/blocks/operations/block.ops').BlocksRemovalData & {
+     * @param {(import('../../states/blocks/operations/block.ops').BlocksRemovalData & {
      *  id?: String
-     * })|import('$lib/utils/operations.utils').SMART} data 
-     * @returns {import('$lib/utils/operations.utils').Operation[]}
+     * })|import('../../utils/operations.utils').SMART} data 
+     * @returns {import('../../utils/operations.utils').Operation[]}
      */
     prepareRemove(data = SMART) {
         if (!(data === SMART)) return super.prepareRemove(data);
         
-        /** @type {import('$lib/utils/operations.utils').Operation[]} */
+        /** @type {import('../../utils/operations.utils').Operation[]} */
         const ops = [];
 
         console.log(this);
@@ -697,6 +701,42 @@ export class Paragraph extends MegaBlock {
                 endBlock
             }
         });
+    }
+
+    childrenWithoutTrailingLinebreak = $derived(this.children.filter(c => !(c.last && c instanceof Linebreak) ));
+    values = $derived({
+        text: this.childrenWithoutTrailingLinebreak.map(c => c instanceof Text ? c.text : '\n').join(''),
+        json: { type: 'paragraph', children: this.childrenWithoutTrailingLinebreak.map(c => c.values.json) }
+    })
+
+
+
+
+    /**
+     * @typedef {{ type: 'text', data: string }|string} TextDataType
+     * @typedef {{ type: 'json'|'children', data: Array<any> }|Array<any>} JsonDataType
+     * @param {TextDataType|JsonDataType} data 
+     * @param {*} rest 
+     */
+    static data(data, rest = {}) {
+        data ??= {type: 'children', data: []};
+        if (typeof data === "string") data = { type: 'text', data };
+        if (Array.isArray(data)) data = { type: 'children', data };
+        if (data?.type === 'json') data.type = 'children';
+        if (data.type === 'text') {
+            const texts = data.data.split('\n').map((t, i, arr) => {
+                const blocks = [];
+                if (t) blocks.push(Text.data({ text: t }));
+                if (i < arr.length - 1) blocks.push(Linebreak.data());
+                return blocks;
+            });
+            return super.data(texts.flat(), rest);
+        } else if (data.type === 'children' && Array.isArray(data.data)) {
+            return super.data(data.data, rest);
+        }
+
+
+
     }
 
 }

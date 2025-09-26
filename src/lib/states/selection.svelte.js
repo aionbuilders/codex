@@ -1,6 +1,6 @@
 import { untrack } from 'svelte';
-import { SvelteSelection } from '$lib/utils/selection.svelte';
-import { findClosestParentIndex } from '$lib/utils/coordinates.utils';
+import { SvelteSelection } from '../utils/selection.svelte';
+import { findClosestParentIndex } from '../utils/coordinates.utils';
 import { Children } from 'hono/jsx';
 import { MegaBlock } from './block.svelte';
 

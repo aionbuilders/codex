@@ -44,7 +44,7 @@ export class Operation {
 
 export class Transaction {
 
-    /** @param {Operation[]} [ops] @param {import('$lib/states/codex.svelte').Codex} [codex] */
+    /** @param {Operation[]} [ops] @param {import('../states/codex.svelte').Codex} [codex] */
     constructor(ops = [], codex) {
         this.codex = codex;
         this.operations = new Set(ops);
