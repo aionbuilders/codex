@@ -1,12 +1,13 @@
 {
 	"name": "@aionbuilders/codex",
-	"version": "1.0.0-alpha.1",
+	"version": "1.0.0-alpha.2",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build && npm run prepack",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
-		"prepack": "svelte-kit sync && svelte-package && publint",
+		"prepack": "svelte-kit sync && svelte-package",
+		"lin:package": "publint",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json --watch",
 		"generate-types": "tsc --project ./tsc/tsconfig.json",
@@ -20,8 +21,7 @@
 	"files": [
 		"dist",
 		"!dist/**/*.test.*",
-		"!dist/**/*.spec.*",
-		"lib"
+		"!dist/**/*.spec.*"
 	],
 	"sideEffects": [
 		"**/*.css"
@@ -51,28 +51,48 @@
 		},
 		"./types": {
 			"types": "./dist/types.d.ts",
-			"development": {"svelte": "./src/lib/types.js"},
-			"production": {"svelte": "./dist/types.js"}
+			"development": {
+				"svelte": "./src/lib/types.js"
+			},
+			"production": {
+				"svelte": "./dist/types.js"
+			}
 		},
 		"./utils": {
 			"types": "./dist/utils.d.ts",
-			"development": {"svelte": "./src/lib/utils.js"},
-			"production": {"svelte": "./dist/utils.js"}
+			"development": {
+				"svelte": "./src/lib/utils.js"
+			},
+			"production": {
+				"svelte": "./dist/utils.js"
+			}
 		},
 		"./blocks": {
 			"types": "./dist/blocks.d.ts",
-			"development": {"svelte": "./src/lib/blocks.js"},
-			"production": {"svelte": "./dist/blocks.js"}
+			"development": {
+				"svelte": "./src/lib/blocks.js"
+			},
+			"production": {
+				"svelte": "./dist/blocks.js"
+			}
 		},
 		"./components": {
 			"types": "./dist/components.d.ts",
-			"development": {"svelte": "./src/lib/components.js"},
-			"production": {"svelte": "./dist/components.js"}
+			"development": {
+				"svelte": "./src/lib/components.js"
+			},
+			"production": {
+				"svelte": "./dist/components.js"
+			}
 		},
 		"./presets": {
 			"types": "./dist/presets.d.ts",
-			"development": {"svelte": "./src/lib/presets.js"},
-			"production": {"svelte": "./dist/presets.js"}
+			"development": {
+				"svelte": "./src/lib/presets.js"
+			},
+			"production": {
+				"svelte": "./dist/presets.js"
+			}
 		}
 	},
 	"peerDependencies": {

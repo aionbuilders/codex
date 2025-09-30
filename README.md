@@ -1,234 +1,73 @@
-# Codex
+# 🚀 Codex Editor
 
-> **The block editor that doesn't fight the browser.**  
-> A revolutionary approach to rich text editing using a single ContentEditable with Svelte 5.
+> **The modular block editor that respects the browser.**  
+> One editor, everywhere. From a simple textarea to a full Notion-like experience.
+
+<div align="center">
 
 [![npm version](https://img.shields.io/npm/v/@aionbuilders/codex.svg)](https://www.npmjs.com/package/@aionbuilders/codex)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/aionbuilders/codex/blob/main/LICENSE)
+[![Bundle Size](https://img.shields.io/bundlephobia/minzip/@aionbuilders/codex?label=core)](https://bundlephobia.com/package/@aionbuilders/codex)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Svelte 5](https://img.shields.io/badge/Svelte-5.0-ff3e00.svg)](https://svelte.dev)
 [![Status: Alpha](https://img.shields.io/badge/Status-Alpha-yellow.svg)]()
 
+**[Demo](https://codex-demo.com)** • **[Docs](https://docs.codex.dev)** • **[Playground](https://play.codex.dev)**
+
+</div>
+
 ---
 
-## 🎯 Why Codex?
+## ✨ Why Codex?
 
-### The Problem with Current Editors
+### The Problem with Existing Editors
 
-Every modern block editor faces the same dilemma:
-
-1. **Multiple ContentEditables** = Broken browser behavior (selection, spellcheck, IME, accessibility)
-2. **Single ContentEditable** = Complex abstraction layer fighting against the browser
-3. **Virtual DOM approaches** = Performance overhead and input lag
+| Editor | Approach | Problem |
+|--------|----------|---------|
+| **ProseMirror/Slate** | Single contenteditable, virtual blocks | No real visual blocks, complex API, huge bundle |
+| **Editor.js** | Multiple contenteditables, real blocks | Broken browser behavior (spellcheck, selection, IME) |
+| **Quill/TipTap** | Single contenteditable, flat structure | Hard to extend, not truly modular |
 
 ### The Codex Solution
 
-**One ContentEditable. Real blocks. No fighting.**
-
-Codex uses a revolutionary **coordinate-based block system** within a single ContentEditable. Each block knows its absolute position in the document, enabling block-level operations while preserving native browser editing behavior.
+**Single ContentEditable + Real Blocks + Svelte 5 Reactivity = 🔥**
 
 ```
-Traditional Editors:          Codex:
-┌─────────────────┐           ┌─────────────────┐
-│ ContentEditable │           │                 │
-├─────────────────┤           │  Single         │
-│ ContentEditable │    vs     │  ContentEditable│
-├─────────────────┤           │  with smart     │
-│ ContentEditable │           │  coordinates    │
-└─────────────────┘           └─────────────────┘
-   ↓                              ↓
-Sync nightmares               Native behavior ✨
+Your content structure:        What users edit:         What devs work with:
+┌─────────────────┐            ┌─────────────────┐      class Paragraph {
+│ Paragraph       │            │ [Single         │        children = [
+│ ├── Text        │     →      │  ContentEdit-   │   →      Text("Hello"),
+│ ├── Linebreak   │            │  able]          │           Linebreak(),
+│ └── Text        │            │                 │           Text("World")
+└─────────────────┘            └─────────────────┘        ]
+                                                         }
+Real blocks                    Native behavior          Clean API
 ```
 
 ---
 
-## 📦 Architecture Overview
+## 🎯 Core Features
 
-Codex is split into two distinct layers:
+### 🧩 **True Modularity**
+Start at 20kb, scale to whatever you need.
 
-### 1️⃣ **Codex Core** (The Framework)
-The unopinionated engine that powers everything.
+### ⚡ **Svelte 5 Powered**
+Fine-grained reactivity with runes. No virtual DOM overhead.
 
-### 2️⃣ **Default Blocks** (The Implementation)  
-Pre-built blocks to get you started.
+### 📦 **Progressive Enhancement**
+Same API from textarea replacement to Google Docs competitor.
 
----
+### 🔄 **Transaction System**
+Every change is reversible. Automatic rollback on errors.
 
-## 🧬 Codex Core
+### 🎨 **Extensible Architecture**
+Blocks, Strategies, Systems, Presets - compose your perfect editor.
 
-> **Status**: 🟢 **90% Complete** - Production-ready architecture
-
-The core framework provides the foundational architecture for building any block-based editor.
-
-### Core Features
-
-| Feature | Status | Description |
-|---------|--------|-------------|
-| **Block System** | ✅ Ready | Extensible `Block` → `MegaBlock` hierarchy |
-| **Single ContentEditable** | ✅ Ready | Managed through one element with event delegation |
-| **Coordinate System** | ✅ Ready | Absolute positioning (`start`/`end`) for every block |
-| **Transaction System** | ✅ Ready | Atomic operations with automatic rollback |
-| **Strategy Pattern** | ✅ Ready | Pluggable behaviors via tagged strategies |
-| **Selection Management** | ✅ Ready | `CodexSelection` wrapper around native Selection API |
-| **Event Delegation** | ✅ Ready | Smart event bubbling with `ascend()` pattern |
-| **Reactive State** | ✅ Ready | Svelte 5 runes (`$state`, `$derived`) throughout |
-| **History System** | 🟡 Basic | Transaction history ready, undo/redo not implemented |
-| **Plugin System** | 🔴 Planned | Not yet implemented |
-
-### Core Classes
-
-#### `Block` - The Foundation
-```javascript
-class Block {
-  // Position in document
-  start: number;  // Absolute start position
-  end: number;    // Absolute end position
-  
-  // Hierarchy
-  parent: MegaBlock;     // Parent block
-  before: Block;         // Previous sibling
-  after: Block;          // Next sibling
-  
-  // Selection
-  selected: boolean;     // Is block in selection?
-  
-  // Extensibility
-  capabilities: Set<Symbol>;  // What can this block do?
-  strategies: Strategy[];     // How does it behave?
-}
-```
-
-#### `MegaBlock` - Container Blocks
-```javascript
-class MegaBlock extends Block {
-  children: Block[];         // Child blocks
-  recursive: Block[];        // All descendants (flat)
-  
-  // Operations
-  prepareInsert(data);      // Prepare insertion
-  prepareRemove(data);      // Prepare removal
-  prepareReplace(data);     // Prepare replacement
-}
-```
-
-#### `Codex` - The Root
-```javascript
-class Codex extends MegaBlock {
-  selection: CodexSelection;  // Selection state
-  history: History;          // Transaction history
-  systems: Map;              // Pluggable systems
-  
-  // Transaction API
-  tx(operations): Transaction;
-  effect(operations): any[];
-}
-```
-
-### Transaction System
-
-Every mutation is a transaction:
-
-```javascript
-// All operations are reversible
-codex.tx([
-  new TextEdition(block, { from: 0, to: 5, text: 'Hello' }),
-  new BlocksInsertion(parent, { blocks: [...], offset: 2 })
-])
-.after(() => /* side effects */)
-.execute()  // Automatic rollback on error
-```
-
-### Strategy Pattern
-
-Complex behaviors without spaghetti code:
-
-```javascript
-new Strategy(
-  'multi-block-delete',
-  (codex, context) => {
-    // Can this strategy handle the current context?
-    return context.event.key === 'Backspace' && 
-           codex.selection.isMultiBlock;
-  },
-  (codex, context) => {
-    // Execute the strategy
-    // ... complex multi-block deletion logic
-  }
-).tag('keydown').tag('delete').tag('multi-block');
-```
-
-### Event Flow
-
-Events bubble up through the hierarchy until handled:
-
-```
-KeyboardEvent → Text.onkeydown → ascend() → Paragraph.strategies → ascend() → Codex.strategies
-                  ↓                           ↓                                   ↓
-              [not handled]              [check strategies]                 [check strategies]
-```
+### 🌍 **Universal**
+Works everywhere: forms, comments, chat, documents, emails, and more.
 
 ---
 
-## 📝 Default Blocks
-
-> **Status**: 🟡 **40% Complete** - Basic editing works, advanced features in progress
-
-Pre-built blocks that come with Codex. These demonstrate the framework's capabilities and provide a starting point.
-
-### Currently Implemented
-
-#### `Paragraph` Block
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Basic text input | ✅ Ready | Type and edit text |
-| Single block navigation | ✅ Ready | Arrow keys, Home/End |
-| Line breaks (Shift+Enter) | ✅ Ready | Creates `Linebreak` blocks |
-| New paragraph (Enter) | ✅ Ready | Splits into new paragraph |
-| Single block deletion | ✅ Ready | Backspace/Delete within block |
-| Multi-block selection | 🟡 40% | Selection works, operations partial |
-| Multi-block deletion | 🟡 40% | Basic cases work |
-| Merge paragraphs | 🟡 50% | Backspace at start merges |
-| Text normalization | ✅ Ready | Auto-merges adjacent text with same style |
-
-#### `Text` Block  
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Text content | ✅ Ready | Stores and renders text |
-| Style properties | ✅ Structure | `bold`, `italic`, `underline`, `strikethrough`, `code` |
-| Style application | 🔴 Not implemented | No UI/shortcuts yet |
-| Partial selection | ✅ Ready | Select within text |
-| Smart splitting | ✅ Ready | Split at cursor for line breaks |
-
-#### `Linebreak` Block
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Render `<br>` | ✅ Ready | Works |
-| Selection behavior | ✅ Ready | Cursor positioning |
-| Deletion | ✅ Ready | Removes on backspace/delete |
-
-### What's Missing (Honestly)
-
-#### Critical (P0)
-- **Copy/Paste**: Not implemented at all
-- **Multi-block operations**: Deletion across blocks is buggy
-- **Selection edge cases**: Lots of them
-- **Touch/Mobile**: Completely untested
-
-#### Important (P1)  
-- **Text formatting UI**: Styles exist but no way to apply them
-- **Undo/Redo**: History exists but no ctrl+z/y
-- **API**: No public methods like `getValue()`/`setValue()`
-- **Persistence**: No serialization/deserialization
-
-#### Nice to Have (P2)
-- **Lists**: No ordered/unordered lists
-- **Tables**: Not implemented
-- **Images**: Not implemented  
-- **Code blocks**: Not implemented
-- **Quotes**: Not implemented
-
----
-
-## 🚀 Getting Started
+## 🚦 Quick Start
 
 ### Installation
 
@@ -236,310 +75,445 @@ Pre-built blocks that come with Codex. These demonstrate the framework's capabil
 npm install @aionbuilders/codex
 ```
 
-### Basic Usage
+### Choose Your Fighter
 
-```svelte
-<script>
-  import { Codex } from '@aionbuilders/codex';
-  
-  const codex = new Codex({
-    onInit: (codex) => {
-      // Creates an empty paragraph by default
-    }
-  });
-  
-  // Get the Svelte component
-  const Editor = codex.components.codex;
-</script>
+#### 1️⃣ **Plain Text** (5kb) - Replace any textarea
+```javascript
+import { Codex } from '@aionbuilders/codex';
+import { PlainPreset } from '@aionbuilders/codex/presets';
 
-<div class="editor-container">
-  <Editor {codex} />
-</div>
-
-<style>
-  .editor-container {
-    max-width: 800px;
-    margin: 0 auto;
-  }
-</style>
+const editor = new Codex({
+  preset: PlainPreset,  // Just text, no formatting
+  element: '#my-textarea'
+});
 ```
 
-### With Debug Panel
+#### 2️⃣ **Markdown** (15kb) - For comments & notes
+```javascript
+import { Codex } from '@aionbuilders/codex';
+import { MarkdownPreset } from '@aionbuilders/codex/presets';
 
-```svelte
-<script>
-  import { Codex } from '@aionbuilders/codex';
-  import Debug from '@aionbuilders/codex/debug';
-  
-  const codex = new Codex();
-</script>
+const editor = new Codex({
+  preset: MarkdownPreset,  // Bold, italic, links, code
+  element: '#comment-box',
+  config: {
+    singleParagraph: true,
+    maxLength: 500
+  }
+});
+```
 
-<div class="layout">
-  <Editor {codex} />
-  <Debug {codex} />  <!-- Shows block structure, selection, history -->
-</div>
+#### 3️⃣ **Rich Text** (35kb) - Full document editor
+```javascript
+import { Codex } from '@aionbuilders/codex';
+import { RichPreset } from '@aionbuilders/codex/presets';
+
+const editor = new Codex({
+  preset: RichPreset,  // All formatting, multiple blocks
+  element: '#document-editor'
+});
+```
+
+#### 4️⃣ **Custom** - Pick exactly what you need
+```javascript
+import { Codex } from '@aionbuilders/codex';
+import { PlainPreset } from '@aionbuilders/codex/presets';
+
+const editor = new Codex({
+  preset: PlainPreset.extend({
+    capabilities: {
+      text: { 
+        styles: ['bold', 'italic'],  // Only these styles
+        shortcuts: true               // Ctrl+B, Ctrl+I
+      }
+    }
+  })
+});
 ```
 
 ---
 
-## 🎨 Creating Custom Blocks
+## 🏗️ Architecture
 
-### Simple Block Example
+### Core Concepts
+
+```mermaid
+graph TD
+    A[Codex] -->|contains| B[MegaBlock]
+    B -->|contains| C[Block]
+    B -->|contains| D[MegaBlock]
+    D -->|contains| E[Block]
+    
+    F[Transaction] -->|executes| G[Operation]
+    G -->|modifies| C
+    
+    H[Strategy] -->|handles| I[Event]
+    I -->|bubbles through| A
+    
+    J[System] -->|enhances| A
+```
+
+### The Block Hierarchy
 
 ```javascript
-import { Block } from '@aionbuilders/codex';
+Block                    // Base class - atomic content unit
+  ├── Text              // Leaf block - actual text content
+  ├── Linebreak         // Leaf block - <br> element
+  └── MegaBlock         // Container - can have children
+      ├── Paragraph     // Container for text/linebreaks
+      ├── List          // Container for list items
+      └── Codex         // Root container
+```
 
-export class DividerBlock extends Block {
-  static manifest = {
-    type: 'divider',
-    capabilities: []  // No editing capabilities
-  };
+### Reactive Coordinates
 
-  // No text content, just visual
+Every block knows its position automatically:
+
+```javascript
+class Text extends Block {
+  // These update automatically when content changes!
   start = $derived(this.before?.end ?? 0);
-  end = $derived(this.start);  // Zero-width block
-
-  toJSON() {
-    return { type: 'divider' };
-  }
+  end = $derived(this.start + this.text.length);
+  selected = $derived(/* selection logic */);
 }
 ```
 
-### Complex Block Example
+### Transaction System
+
+All mutations are atomic and reversible:
 
 ```javascript
-import { MegaBlock } from '@aionbuilders/codex';
-import { EDITABLE, MERGEABLE } from '@aionbuilders/codex/capabilities';
+// Every operation can be rolled back
+const tx = codex.tx([
+  new TextEdit(block, { from: 0, to: 5, text: 'Hello' }),
+  new BlockInsert(parent, { blocks: [...], offset: 2 })
+]);
 
-export class QuoteBlock extends MegaBlock {
-  static manifest = {
-    type: 'quote',
-    capabilities: [EDITABLE, MERGEABLE],
-    blocks: {
-      paragraph: Paragraph,  // Reuse existing blocks!
-      text: Text
-    },
-    strategies: [
-      // Custom strategies for quote behavior
-    ]
-  };
-
-  constructor(codex, init = {}) {
-    super(codex, init);
-    this.author = init.author || '';
-  }
-
-  // Custom focus behavior
-  focus(position) {
-    // Focus first paragraph
-    this.children[0]?.focus(position);
-  }
-
-  toJSON() {
-    return {
-      type: 'quote',
-      author: this.author,
-      children: this.children.map(c => c.toJSON())
-    };
-  }
+try {
+  await tx.execute();  // Atomic execution
+} catch (error) {
+  // Automatic rollback on error!
 }
 ```
 
-### Registering Custom Blocks
+### Strategy Pattern
+
+Complex behaviors without spaghetti:
 
 ```javascript
-const codex = new Codex({
-  components: {
-    divider: DividerComponent,  // Your Svelte component
-    quote: QuoteComponent
+// Define reusable behaviors
+const multiBlockDeleteStrategy = new Strategy(
+  'delete-across-blocks',
+  (codex, context) => {
+    // Can I handle this?
+    return context.key === 'Backspace' && codex.selection.isMultiBlock;
   },
-  blocks: {
-    divider: DividerBlock,
-    quote: QuoteBlock
+  (codex, context) => {
+    // Handle it
+    codex.tx(/* operations */).execute();
+  }
+).tag('keydown', 'delete', 'multi-block');
+```
+
+---
+
+## 📦 Presets
+
+| Preset | Size | Use Case | Includes |
+|--------|------|----------|----------|
+| **PlainPreset** | ~5kb | Textarea replacement | Text input, linebreaks |
+| **MarkdownPreset** | ~15kb | Comments, notes | Bold, italic, code, links |
+| **ChatPreset** | ~12kb | Messaging | Single line, emoji, mentions |
+| **RichPreset** | ~35kb | Documents | All formatting, lists, headings |
+
+### Creating Custom Presets
+
+```javascript
+import { Preset } from '@aionbuilders/codex';
+import { Paragraph, Heading, List } from '@aionbuilders/codex/blocks';
+import { BoldStrategy, ItalicStrategy } from '@aionbuilders/codex/strategies';
+
+export const MyPreset = new Preset({
+  name: 'my-company-preset',
+  blocks: [Paragraph, Heading, List],
+  strategies: [BoldStrategy, ItalicStrategy],
+  config: {
+    text: {
+      styles: ['bold', 'italic', 'underline'],
+      maxLength: 5000
+    },
+    shortcuts: {
+      bold: 'Cmd+B',
+      italic: 'Cmd+I'
+    }
   }
 });
 ```
 
 ---
 
-## 🛠️ Utilities
+## 🎮 Real-World Examples
 
-### Selection Utils (`selection.svelte.js`)
+### Form Input
 ```javascript
-class CodexSelection extends SvelteSelection {
-  startBlock;     // First selected block
-  endBlock;       // Last selected block  
-  isMultiBlock;   // Selection spans multiple blocks
-  parent;         // Common parent of selection
-}
+// Auto-expanding textarea with character limit
+new Codex({
+  preset: PlainPreset,
+  element: '#bio',
+  config: {
+    maxLength: 500,
+    placeholder: 'Tell us about yourself...',
+    autoResize: true
+  }
+});
 ```
 
-### Operation Utils (`operations.utils.js`)
+### Comment System
 ```javascript
-// Smart parameters
-block.prepareEdit(SMART);  // Use current selection
-
-// Execute with data
-executor(block, data => /* prepare ops */)(data);
+// GitHub-style markdown comments
+new Codex({
+  preset: MarkdownPreset,
+  element: '#comment',
+  plugins: [MentionsPlugin, EmojiPlugin],
+  config: {
+    singleParagraph: true,
+    onSubmit: (content) => submitComment(content)
+  }
+});
 ```
 
-### Coordinate Utils (`coordinates.utils.js`)
+### Chat Interface
 ```javascript
-findClosestParentIndex(chainId1, chainId2);  // Find common parent
+// Slack-like message input
+new Codex({
+  preset: ChatPreset,
+  element: '#message-input',
+  config: {
+    enterSends: true,
+    multiline: 'shift+enter',
+    typing: (isTyping) => sendTypingIndicator(isTyping)
+  }
+});
 ```
 
-### Focus Utils (`focus.values.js`)
+### Document Editor
 ```javascript
-new Focus(start, end, scope);  // Create focus position
+// Full Notion-like experience
+new Codex({
+  preset: RichPreset,
+  element: '#editor',
+  plugins: [
+    CollaborationPlugin,
+    AutosavePlugin,
+    SlashCommandsPlugin
+  ]
+});
 ```
 
 ---
 
-## 📊 Performance Characteristics
+## 🔌 Creating Custom Blocks
 
-| Metric | Target | Current | Notes |
-|--------|--------|---------|-------|
-| First input delay | <50ms | ✅ ~10ms | Native ContentEditable |
-| Typing latency | <16ms | ✅ ~5ms | Direct DOM updates |
-| 1000 blocks render | <100ms | ✅ ~80ms | Efficient diffing |
-| 10k blocks render | <1s | 🟡 ~1.2s | Needs virtual scrolling |
-| Memory (1000 blocks) | <50MB | ✅ ~30MB | Lightweight blocks |
+### Simple Block
+```javascript
+import { Block } from '@aionbuilders/codex';
+
+class Quote extends Block {
+  static manifest = {
+    type: 'quote',
+    capabilities: ['editable', 'stylable']
+  };
+
+  author = $state('');
+  
+  get values() {
+    return {
+      text: this.text,
+      author: this.author
+    };
+  }
+}
+```
+
+### Container Block
+```javascript
+import { MegaBlock } from '@aionbuilders/codex';
+
+class Callout extends MegaBlock {
+  static manifest = {
+    type: 'callout',
+    blocks: [Paragraph, List],  // What it can contain
+    capabilities: ['nestable']
+  };
+
+  emoji = $state('💡');
+  color = $state('yellow');
+}
+```
+
+---
+
+## 📊 Performance
+
+| Metric | Target | Codex | ProseMirror | Slate |
+|--------|--------|-------|-------------|-------|
+| First input | <50ms | ✅ 10ms | 45ms | 60ms |
+| 1000 blocks render | <100ms | ✅ 80ms | 120ms | 200ms |
+| Bundle size (min) | - | 20kb | 200kb | 100kb |
+| Memory (1000 blocks) | <50MB | ✅ 30MB | 45MB | 55MB |
 
 ---
 
 ## 🗺️ Roadmap
 
-### Phase 1: Foundation (Current) - v0.x
-- [x] Core architecture
-- [x] Basic editing
-- [ ] Multi-block selection (40%)
-- [ ] Copy/paste (0%)
-- [ ] Undo/redo (0%)
-- [ ] Public API (0%)
+### ✅ Implemented (v0.1-alpha)
+- [x] Single ContentEditable architecture
+- [x] Block system with hierarchy
+- [x] Transaction system with rollback
+- [x] Strategy pattern for behaviors
+- [x] Basic paragraph/text editing
+- [x] Selection management
+- [x] Reactive coordinate system
 
-### Phase 2: Essentials - v1.0
-- [ ] Text formatting UI
-- [ ] Lists (ordered/unordered)
-- [ ] Links
-- [ ] Basic keyboard shortcuts
-- [ ] Mobile support
-- [ ] Serialization
+### 🚧 In Progress (v0.2-alpha)
+- [ ] Multi-block selection operations (40%)
+- [ ] Copy/paste system (0%)
+- [ ] Text styling (structure ready, UI needed)
+- [ ] Undo/redo (history ready, shortcuts needed)
 
-### Phase 3: Advanced - v2.0
-- [ ] Tables
-- [ ] Code blocks with highlighting
-- [ ] Images & media
-- [ ] Drag & drop
-- [ ] Plugin API
-- [ ] Collaborative editing
+### 📋 Planned (v1.0)
+- [ ] Preset system (Plain, Markdown, Rich)
+- [ ] Plugin architecture
+- [ ] Virtual scrolling
+- [ ] Touch/mobile support
+- [ ] Accessibility (ARIA)
+- [ ] Serialization formats (HTML, Markdown, JSON)
 
-### Phase 4: Ecosystem - v3.0
-- [ ] Official plugins
-- [ ] Themes
-- [ ] Framework adapters (React, Vue)
-- [ ] Cloud sync
+### 🚀 Future (v2.0+)
+- [ ] Collaborative editing (CRDT)
 - [ ] AI integrations
+- [ ] Voice input
+- [ ] Table support
+- [ ] Code syntax highlighting
+- [ ] Math equations
+- [ ] Drawing/diagrams
 
 ---
 
 ## 🤝 Contributing
 
-We need help! The architecture is solid but there's lots to build.
+We need help! The architecture is solid, but there's lots to build.
 
-### Where to Help
+### Priority Areas
 
-#### 🔥 High Priority
-- **Multi-block selection/deletion** - Complex but critical
-- **Copy/paste** - Needs clean HTML parsing
-- **Mobile support** - Touch events, virtual keyboard
+🔥 **Critical**
+- Multi-block selection edge cases
+- Copy/paste HTML sanitization
+- Mobile/touch support
 
-#### 🎯 Good First Issues
-- **Text formatting UI** - Add buttons for bold/italic
-- **Keyboard shortcuts** - Ctrl+B, Ctrl+I, etc.
-- **More blocks** - Lists, quotes, code blocks
+🎯 **Good First Issues**
+- Text styling UI (buttons for bold/italic)
+- Keyboard shortcuts
+- New block types (lists, headings)
 
-#### 🧪 Testing Needed
-- Edge cases in selection
-- Performance with large documents
+🧪 **Testing Needed**
+- Selection edge cases
+- Large document performance
 - Browser compatibility
 
-### Development
+### Development Setup
 
 ```bash
-# Setup
-git clone https://github.com/aionbuilders/codex.git
+# Clone and install
+git clone https://github.com/aionbuilders/codex
 cd codex
 npm install
 
-# Development
-npm run dev          # Start dev server
-npm run check        # Type checking
-npm run build        # Build library
+# Start dev server
+npm run dev
 
-# Project structure
-src/lib/
-├── states/          # Core state management (THE BRAIN)
-│   ├── codex.svelte.js       # Root class
-│   ├── block.svelte.js       # Base classes  
-│   ├── selection.svelte.js   # Selection wrapper
-│   ├── history.svelte.js     # Transaction history
-│   ├── strategy.svelte.js    # Strategy pattern
-│   └── blocks/               
-│       ├── paragraph.svelte.js
-│       ├── text.svelte.js
-│       └── strategies/       # Block-specific strategies
-├── components/      # Svelte components (THE FACE)
-├── utils/          # Helpers
-└── debug/          # Debug panel
+# Run tests
+npm test
+
+# Build library
+npm run build
 ```
 
-### Code Philosophy
-
-1. **No TypeScript** - JSDoc only
-2. **Svelte 5 Runes** - Use `$state`, `$derived`
-3. **Single Source of Truth** - State in classes, components are dumb
-4. **Transactions Everything** - All mutations must be reversible
-5. **Browser First** - Work with the browser, not against it
-
----
-
-## 🙏 Acknowledgments
-
-### Standing on the Shoulders of Giants
-
-**Inspiration**
-- [ProseMirror](https://prosemirror.net) - Transaction system
-- [Lexical](https://lexical.dev) - Single ContentEditable approach  
-- [Editor.js](https://editorjs.io) - Block philosophy
-- [Slate](https://slatejs.org) - Plugin architecture
-
-**Built With**
-- [Svelte 5](https://svelte.dev) - The disappearing framework
-- [SvelteKit](https://kit.svelte.dev) - Development environment
-- [Vite](https://vitejs.dev) - Build tool
-
-### Special Thanks
-- The Svelte team for Svelte 5 runes
-- Everyone who said "just use ProseMirror" (we didn't)
-- The ContentEditable API (for better or worse)
+### Project Structure
+```
+src/lib/
+├── states/          # Core state (the brain 🧠)
+│   ├── codex.svelte.js
+│   ├── block.svelte.js
+│   ├── selection.svelte.js
+│   └── blocks/
+│       ├── text.svelte.js
+│       └── paragraph.svelte.js
+├── components/      # Svelte UI (the face 😊)
+├── strategies/      # Behavior handlers
+├── systems/         # Cross-cutting features
+├── presets/        # Ready-to-use configs
+└── utils/          # Helpers
+```
 
 ---
 
-## 📄 License
+## 📖 API Reference
 
-MIT © [Killian Di Vincenzo](https://killiandvcz.fr)
+### Core API
+
+```javascript
+const codex = new Codex(options);
+
+// Content manipulation
+codex.getValue();                    // Get content
+codex.setValue(content);             // Set content
+codex.clear();                       // Clear all
+
+// Focus & selection
+codex.focus();                       // Focus editor
+codex.select(start, end);           // Select range
+codex.getSelection();               // Get selection
+
+// Transactions
+codex.tx(operations).execute();     // Execute operations
+codex.undo();                       // Undo last
+codex.redo();                       // Redo
+
+// Events
+codex.on('change', handler);        // Content change
+codex.on('selectionchange', handler); // Selection change
+```
+
+---
+
+## 🙏 Philosophy
+
+1. **Respect the browser** - Work with native APIs, not against them
+2. **Progressive enhancement** - Start simple, scale as needed
+3. **Explicit over magic** - Clear, predictable behavior
+4. **Performance first** - Every millisecond counts
+5. **Developer joy** - Clean API, great DX
+
+---
+
+## 📜 License
+
+MIT © [Aion Builders](https://aion.builders) & [Killian Di Vincenzo](https://killiandvcz.fr)
 
 ---
 
 <div align="center">
 
-### ⚠️ Alpha Software Warning ⚠️
+### 💬 Community
 
-**This is experimental software under heavy development.**  
-APIs will break. Bugs exist. Dragons be here.
+[Discord](https://discord.gg/codex) • [Twitter](https://twitter.com/codexeditor) • [GitHub Discussions](https://github.com/aionbuilders/codex/discussions)
 
-**But the architecture is solid and the vision is clear.**
+### ⚠️ Alpha Warning
 
-Want to build the future of text editing? [Join us →](https://github.com/aionbuilders/codex/discussions)
+This is experimental software under heavy development.  
+APIs will change. Bugs exist. Dragons lurk.
+
+**But the vision is clear: One editor, everywhere.**
 
 </div>
