@@ -3,6 +3,7 @@ import { Focus } from "../../values/focus.values";
 import { Strategy } from "../strategy.svelte";
 import { until } from "../../utils/utils";
 import { GETDELTA } from "../../utils/operations.utils";
+import { Perf } from "$lib/utils/performance.utils";
 
 
 /**
@@ -13,22 +14,32 @@ import { GETDELTA } from "../../utils/operations.utils";
 const replace = (codex, data) => {
     const $REFOCUS = Symbol('refocus');
 
+    console.log('Codex children:', codex.children);
     const startBlock = codex.children.find(child => child.selected);
     const startPosition = startBlock && (startBlock.start + (startBlock.selection ? startBlock.selection.start : 0)) || 0;
     const endBlock = codex.children.findLast(child => child.selected && child !== startBlock);
     const betweenBlocks = ((startBlock && endBlock) && codex.children.slice(codex.children.indexOf(startBlock) + 1, codex.children.indexOf(endBlock))) || []; 
+    console.log({ startBlock, endBlock, betweenBlocks });
 
     const isThereSelectedBlocksBeforeEnd = betweenBlocks.length || (startBlock && endBlock && startBlock !== endBlock);
 
+
+
     /** @type {import('../../utils/operations.utils').Operation[]} */
     const ops = [];
+
+    console.log("Start block:", startBlock);
+    
     if (endBlock && endBlock !== startBlock) ops.push(...(endBlock ? (endBlock.prepare('remove')): []));
-    if (betweenBlocks.length) betweenBlocks.forEach(b => {
-        ops.push(...b.prepareDestroy());
-    })
+    console.log("Between blocks:", betweenBlocks);
+    
+    if (betweenBlocks.length) ops.push(...codex.prepareRemove({ids: betweenBlocks.map(b => b.id)}));
+
     ops.push(...(startBlock ? (startBlock.prepare('remove')): []));
+    
 
     if (data) {
+
         const translator = codex.systems.find(s => s.handlers.has('input'));
         if (translator) {
             
@@ -51,16 +62,22 @@ const replace = (codex, data) => {
         }
     }
 
+
     if (ops.length) {
+
         codex.tx(ops).after(() => {
+
+            
             if (endBlock && endBlock.capabilities.has(MERGEABLE) && isThereSelectedBlocksBeforeEnd) {
                 if (startBlock?.capabilities.has(MERGEABLE)) {
                     const ops = startBlock.prepare('merge', endBlock);
                     return ops;
                 }
             }
+
             return [];
         }).execute().then(results => {
+
             const hinter = results.map(r => r.operation).filter(op => op.metadata?.[$REFOCUS] && op.metadata?.[GETDELTA]);
             const refocus = startPosition + (hinter.reduce((acc, op) => acc + (op.metadata?.[GETDELTA]?.() || 0), 0));
             const data = codex.getFocusData(new Focus(refocus, refocus));

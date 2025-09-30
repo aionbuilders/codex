@@ -1,12 +1,14 @@
 <script>
     import './global.css';
     import { Codex } from '$lib';
-    import { Paragraph } from '$lib/blocks';
     import Debug from '$lib/debug/Debug.svelte';
+    import { generateMockCodexData } from './mock';
+    import { browser } from '$app/environment';
+    import { Paragraph } from '$lib/blocks';
     
-    const data = Codex.data([
-        Paragraph.data("hello\nworld"),
-        Paragraph.data("this is a second paragraph"),
+    const data = browser && Codex.data([
+        // ...generateMockCodexData({count: 5})
+        ...(Array(200).fill(Paragraph.data("This is a sample paragraph. You can edit this text, add new blocks, and explore the features of the Codex editor. Enjoy your writing experience!")))
     ])
     console.log({data});
     
@@ -20,7 +22,7 @@
             <Editor {codex} />
         {/if}    
     </div>
-    <Debug {codex} />
+    <!-- <Debug {codex} /> -->
 </div>
 
 <style lang="scss">

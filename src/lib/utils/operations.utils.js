@@ -1,4 +1,5 @@
 import { tick } from 'svelte';
+import { Perf } from './performance.utils';
 
 export class Operation {
     /** @param {import('../states/block.svelte').Block} block  @param {String} name @param {any} data @param {Operation} [undo] */
@@ -54,6 +55,7 @@ export class Transaction {
 
 
         this.temp = new Map();
+        this.uuid = crypto.randomUUID();
     }
 
     /** @type {Array<{ operation: Operation, result: any }>} */
@@ -67,11 +69,17 @@ export class Transaction {
         const beforeSelection = this.codex?.selection?.range;
 
         try {
-            for (const op of this.operations) op.execute(this);
+
+            for (const op of this.operations) {
+
+                op.execute(this);
+            }
+            
             for (const after of this.afters) {
                 after(this).forEach(op => op.execute(this));
             }
             await tick().then(() => this.commit());
+
             return this.results;
         } catch (error) {
             for (let i = this.executed.length - 1; i >= 0; i--) {
@@ -87,6 +95,8 @@ export class Transaction {
             this.codex?.selection?.setRange(beforeSelection?.startContainer, beforeSelection?.startOffset, beforeSelection?.endContainer, beforeSelection?.endOffset);
             throw error;
         } finally {
+
+
             if (this.codex) this.codex.history.current = null;
         }
     }

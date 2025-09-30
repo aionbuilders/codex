@@ -4,7 +4,7 @@
 
 </script>
 
-<span bind:this={block.element} data-codex-text-index={block.index}
+<span bind:this={block.element}
     style:font-weight={block.bold ? 'bold' : 'normal'}
     style:font-style={block.italic ? 'italic' : 'normal'}
     style:text-decoration={block.underline ? 'underline' : block.strikethrough ? 'line-through' : 'none'}

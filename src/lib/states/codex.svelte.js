@@ -16,6 +16,9 @@ import { Transaction } from '../utils/operations.utils';
 import { History } from './history.svelte';
 import { Focus } from '../values/focus.values';
 import { MinimalPreset } from '../presets';
+import { Perf } from '$lib/utils/performance.utils';
+import { browser } from '$app/environment';
+import { untrack } from 'svelte';
 
 export const initialStrategies = [
     ...codexStrategies
@@ -39,6 +42,8 @@ export class Codex extends MegaBlock {
     constructor(init = {}) {
         super(null, init);
         
+        browser && performance.mark('codex#init-start');
+
         /** @type {CodexInit} */
         this.init = init;
 
@@ -55,27 +60,36 @@ export class Codex extends MegaBlock {
             strategies: init.omit?.filter(name => name.startsWith('strategy:')).map(name => name.replace('strategy:', '')) || [],
             systems: init.omit?.filter(name => name.startsWith('system:')).map(name => name.replace('system:', '')) || [],
         }
-        
-
-        
 
         $effect.root(() => {
             $effect(() => {
                 if (this.element) {
-                    this.selection.observe(this.element);
-                    this.enforceRequiredStyles();
+                    untrack(() => {
+                        if (!this.element) return;
+                        this.selection.observe(this.element);
+                        this.enforceRequiredStyles();
 
-                    const inits = this.systems.filter(s => s.handlers.has('init')).sort((a, b) => b.priority - a.priority).map(s => s.handlers.get('init'));
-                    inits.forEach(init => init(this));
+                        const inits = this.systems.filter(s => s.handlers.has('init')).sort((a, b) => b.priority - a.priority).map(s => s.handlers.get('init'));
+                        inits.forEach(init => init(this));
+                    })
                 }
+
             })
+
+            $effect(() => {
+                this.recursive;
+                untrack(() => { this.recursive.forEach((b, i) => b.index = i);})
+            });
         })
 
         this.$init();
+
+        browser && performance.mark('codex#init-end');
+        browser && performance.measure('codex#init', 'codex#init-start', 'codex#init-end');
+        console.log(performance.getEntriesByName('codex#init'));
     }
 
     get blocks() {
-        console.log('Codex blocks:', this.preset?.blocks, this.init?.blocks);
         return [...(this.preset?.blocks.filter(b => !this.omited.blocks.includes(b.manifest.type) && !(this.init.blocks || []).find(b2 => b2.manifest.type === b.manifest.type)) || []), ...(this.init?.blocks || [])];
     }
 
@@ -121,7 +135,11 @@ export class Codex extends MegaBlock {
      * @param {function(any): void} [ascendCallback] - Callback for handling ascended data
      */
     handleEvent = (e, eventType, strategyTag, ascendCallback) => {
+        try {
+
+
         const context = {event: e};
+
         let currentParent = this.selection?.parent;
 
         if (currentParent && currentParent instanceof MegaBlock) {
@@ -132,10 +150,12 @@ export class Codex extends MegaBlock {
                 if (strategy) {
                     e.preventDefault();
                     strategy.execute(this, {...context, block: currentParent});
+
                     return;
                 }
                 currentParent = currentParent.parent || (currentParent === this ? null : this);
             }
+
         } else if (currentParent) {
             const handlers = this.selection?.anchoredBlocks.map(block => block[eventType]).filter(handler => typeof handler === 'function');
             if (handlers.length === 0) return;
@@ -156,6 +176,12 @@ export class Codex extends MegaBlock {
         } else if (eventType === 'beforeinput') {
             e.preventDefault();
         }
+        } catch (error) {
+
+        }
+        
+
+        
     }
 
     /** @param {InputEvent} e */
@@ -165,7 +191,10 @@ export class Codex extends MegaBlock {
     oninput = e => this.handleEvent(e, 'oninput', 'input');
     
     /** @param {KeyboardEvent} e */
-    onkeydown = e => this.handleEvent(e, 'onkeydown', 'keydown');
+    onkeydown = e => {
+        
+        this.handleEvent(e, 'onkeydown', 'keydown');
+    }
 
     /** @param {import('../utils/operations.utils').Operation[]} ops  */
     tx = (ops) => new Transaction(ops, this)
@@ -202,7 +231,13 @@ export class Codex extends MegaBlock {
      *  end?: { node: Node, offset: number }
      * }} focus
      */
-    focus = (focus) => requestAnimationFrame(() => this.selection.setRange(focus.start.node, focus.start.offset, focus.end?.node || focus.start.node, focus.end?.offset || focus.start.offset));
+    focus = (focus) => {
+        const timecode = performance.now();
+
+        requestAnimationFrame(() => {
+            this.selection.setRange(focus.start.node, focus.start.offset, focus.end?.node || focus.start.node, focus.end?.offset || focus.start.offset);
+        })
+    };
 
     /** @param {Focus} f */
     getFocusData(f) {

@@ -225,10 +225,9 @@ export class Text extends Block {
     
     /**
     * @param {Focus} f 
-    * @param {Number} [attempts=0]
     * @returns
     */
-    focus = (f, attempts) => requestAnimationFrame(() => {
+    focus = (f) => requestAnimationFrame(() => {
         if (this.element) {
             const data = this.getFocusData(f);
             if (data) {
@@ -236,10 +235,6 @@ export class Text extends Block {
                 return true;
             }
             else return console.warn('Text focus data is not available yet.');
-        } else {
-            attempts ??= 0;
-            if (attempts < 10) return this.focus(f, attempts + 1);
-            else return console.warn('Failed to focus text block after 10 attempts.');
         }
     })
     
@@ -424,8 +419,6 @@ export class Text extends Block {
     applyEdit = applier(op => {
         /** @type {EditData} */
         let {text = "", from, to} = op.data;
-        this.log('Applying edit:', { text, from, to });
-        console.trace();
         to = to ?? from;
         this.text = this.text.slice(0, from) + text + this.text.slice(to);
         this.resync();
@@ -441,19 +434,12 @@ export class Text extends Block {
      * @returns 
      */
     $in(data) {
-        this.log({data});
-        console.log("helloo");
         data.text && (this.text = data.text);
-        this.log('Text after input data:', this.text);
         data.styles && Object.entries(data.styles).forEach(([key, value]) => {
             if (['bold', 'italic', 'underline', 'strikethrough', 'code'].includes(key) && typeof value === 'boolean') {
                 this[key] = value;
             }
         });
-        
-        this.log(this);
-        // this.resync();
-        // this.refresh();
     }
 
 

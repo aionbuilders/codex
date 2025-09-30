@@ -1,14 +1,15 @@
-import { untrack } from 'svelte';
 import { SvelteSelection } from '../utils/selection.svelte';
 import { findClosestParentIndex } from '../utils/coordinates.utils';
-import { Children } from 'hono/jsx';
-import { MegaBlock } from './block.svelte';
 
 export class CodexSelection extends SvelteSelection {
     /** @param {import('./codex.svelte').Codex} codex */
     constructor(codex) {
         super();
         this.codex = codex;
+
+        // $effect.root(() => {
+        //     $inspect(this.range, 'selection range changed');
+        // })
     }
     
     /** @type {Node?} */
@@ -145,9 +146,6 @@ export class CodexSelection extends SvelteSelection {
         const range = document.createRange();
         range.setStart(startNode, startOffset);
         range.setEnd(endNode, endOffset);
-
-        // console.log('RANGE', range);
-        // console.trace();
         
         this.removeAllRanges();
         this.addRange(range);

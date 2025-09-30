@@ -8,9 +8,6 @@
 </script>
 
 <div class="debug">
-    <div class="text">
-        {JSON.stringify(codex.values.text)}
-    </div>
     <Structure {codex} />
     <Selection {codex} />
     <History {codex} />

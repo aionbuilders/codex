@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**@killiandvcz/codex** is a Svelte 5 library implementing a sophisticated rich text editor with a modular block-based architecture. It uses modern Svelte runes for reactive state management and provides a ContentEditable-based editing experience with custom behavior handling.
+**@aionbuilders/codex** is a Svelte 5 library implementing a sophisticated rich text editor with a modular block-based architecture. It uses modern Svelte runes for reactive state management and provides a ContentEditable-based editing experience with custom behavior handling.
 
 ## Development Commands
 

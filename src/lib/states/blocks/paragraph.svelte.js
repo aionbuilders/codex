@@ -8,6 +8,7 @@ import { BlocksRemoval } from "./operations/block.ops";
 import { SMART, Operation, GETDELTA } from "../../utils/operations.utils";
 import { EDITABLE, INPUTABLE, MERGEABLE, TRANSFORMS_TEXT } from "../../utils/capabilities";
 import ParagraphC from "../../components/Paragraph.svelte";
+import { Perf } from "$lib/utils/performance.utils";
 
 /** 
 * @typedef {(import('./text.svelte').TextObject|import('./linebreak.svelte').LinebreakObject)[]} ParagraphContent
@@ -73,20 +74,9 @@ export class Paragraph extends MegaBlock {
         $effect.root(() => {
             $effect(() => {
                 if (this.codex && this.element) {
-                    const lastChild = this.children[this.children.length - 1];
-                    if (!lastChild ) {
-                        const tx = this.codex?.tx([
-                            new ParagraphBlockInsertion(this, {
-                                blocks: [
-                                    {
-                                        type: 'linebreak',
-                                        init: {}
-                                    }
-                                ],
-                                offset: -1
-                            })
-                        ]);
-                        tx?.execute();
+                    const lastChild = this.children[this.children.length - 1]
+                    if (!lastChild || !(lastChild instanceof Linebreak)) {
+                        this.children.push(new Linebreak(this.codex));
                     }
                 }
             })
@@ -108,6 +98,7 @@ export class Paragraph extends MegaBlock {
                     if (selection?.isInParagraph) this.focus(new Focus(selection.start, selection.end));
                 }
             })
+
         });
 
         
@@ -206,11 +197,11 @@ export class Paragraph extends MegaBlock {
 
             const obj = this.toInit();
             
-            if (previousMergeable && previousMergeable !== this) {
-                previousMergeable.merge(this)?.then(() => {
-                    console.log('Merged paragraph into previous block:', previousMergeable);
-                })
-            }
+            // if (previousMergeable && previousMergeable !== this) {
+            //     previousMergeable.merge(this)?.then(() => {
+            //         console.log('Merged paragraph into previous block:', previousMergeable);
+            //     })
+            // }
 
             
 
@@ -356,22 +347,18 @@ export class Paragraph extends MegaBlock {
             this.children = [new Linebreak(this.codex)];
         }
 
-        if (!(this.children.at(-1) instanceof Linebreak)) {
-            console.log('Adding linebreak to end of paragraph:', this);
-            this.children.push(new Linebreak(this.codex));
-        }
+        // if (!(this.children.at(-1) instanceof Linebreak)) {
+        //     console.log('Adding linebreak to end of paragraph:', this);
+        //     this.children.push(new Linebreak(this.codex));
+        // }
     }
 
-    /** @param {Focus} f @param {Number} attempts */
-    focus = (f, attempts = 0) => requestAnimationFrame(() => {
+    /** @param {Focus} f */
+    focus = (f) => requestAnimationFrame(() => {
         if (this.element) {
             const data = this.getFocusData(f);
             if (data) this.codex?.selection?.setRange(data.startElement, data.startOffset, data.endElement, data.endOffset);
             else console.warn('Could not get focus data for paragraph:', this);
-        } else {
-            attempts ??= 0;
-            if (attempts < 10) this.focus(f, attempts + 1);
-            else console.error(`Failed to focus paragraph ${this.index} after 10 attempts.`);
         }
     });
 
@@ -515,10 +502,11 @@ export class Paragraph extends MegaBlock {
     prepareRemove(data = SMART) {
         if (!(data === SMART)) return super.prepareRemove(data);
         
+        
         /** @type {import('../../utils/operations.utils').Operation[]} */
         const ops = [];
 
-        console.log(this);
+
         if (this.parent) {
             const startBlock = this.children.find(child => child.selected);
             const endBlock = this.children.findLast(child => child.selected && child !== startBlock);
@@ -532,6 +520,7 @@ export class Paragraph extends MegaBlock {
 
             if (startBlock?.capabilities.has(EDITABLE)) ops.push(...startBlock.prepare('edit', null, {key: 'clear-selection'})); else ops.push(...(startBlock ? this.prepareRemove({ id: startBlock.id }) : []));
         } 
+
 
         return ops;
     }

@@ -78,8 +78,8 @@ export class Linebreak extends Block {
 
     delete = () => this.rm();
 
-    /** @param {Focus} [f] @param {Number} [attempts=0] */
-    focus = (f, attempts = 0) => requestAnimationFrame(() => {
+    /** @param {Focus} [f] */
+    focus = (f) => requestAnimationFrame(() => {
         if (this.element && this.codex) {
             const strategy = this.parent?.strategies?.find(s => s.tags.includes('refocus'));
             if (strategy && strategy.canHandle(this.codex, { block: this })) {
@@ -88,9 +88,6 @@ export class Linebreak extends Block {
             }
             const data = this.getFocusData();
             if (data) this.codex?.selection?.setRange(data.startElement, data.startOffset, data.endElement, data.endOffset);
-        } else {
-            attempts ??= 0
-            if (attempts < 10) this.focus(f, attempts + 1);
         }
     });
 

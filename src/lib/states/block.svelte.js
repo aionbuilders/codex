@@ -7,6 +7,8 @@
 import { applier, preparer } from '../utils/operations.utils';
 import { BlocksInsertion, BlocksRemoval, BlocksReplacement } from './blocks/operations/block.ops';
 import { Codex } from './codex.svelte';
+import { Perf } from '$lib/utils/performance.utils';
+import { untrack } from 'svelte';
 
 /**
  * @typedef {new (...args: any[]) => Block} BlockConstructor
@@ -101,9 +103,6 @@ export class Block {
         this.exporters = new Map();
 
         this.method('delete', () => this.rm());
-
-
-        
     }
 
     $init() {
@@ -127,20 +126,21 @@ export class Block {
 
     unlink = $derived(this.codex?.recursive.includes(this) === false);
     
+
     /** @type {Number} */
-    index = $derived(this.codex?.recursive.indexOf(this) ?? -1);
+    i = $state(-1);
+
+
+
+    /** @type {Number} */
+    index = $state(-1);
     
     /** @type {MegaBlock?} */
-    parent = $derived(this.type === "codex" ? null : this.codex?.recursive.find(block => block instanceof MegaBlock && block?.children.includes(this)) || this.codex);
+    // parent = $derived(this.type === "codex" ? null : this.codex?.recursive.find(block => block instanceof MegaBlock && block?.children.includes(this)) || this.codex);
+    parent = $state(null);
 
     /** @type {MegaBlock[]} */
     parents = $derived(this.parent ? [...this.parent.parents, this.parent] : []);
-
-    /** @type {Block?} */
-    globalBefore = $derived((this.index && this.codex?.recursive.find(block => block.index === this.index - 1)) || null);
-    
-    /** @type {Block?} */
-    globalAfter = $derived((this.index && this.codex?.recursive.find(block => block.index === this.index + 1)) || null);
     
     /** @type {Block?} */
     before = $derived((this.index && this.parent instanceof MegaBlock && this.parent.children?.find(b => b.index === this.index - 1)) || null);
@@ -157,7 +157,10 @@ export class Block {
     /** @type {HTMLElement?} */
     element = $state(null);
     
-    selected = $derived(this.codex?.selection && this.element && this.codex.selection?.range?.intersectsNode(this.element));
+    selected = $derived.by(() => {
+        if (!this.codex?.selection.isInside) return false;
+        return untrack(() => this.element ? this.codex?.selection?.range?.intersectsNode(this.element) : false);
+    });
     
     /** @type {Number} */
     depth = $derived(this.parent ? this.parent.depth + 1 : 0);
@@ -343,7 +346,6 @@ export class Block {
      * @returns {any}
      */
     call = (name, ...args) => {
-        this.log('Calling method:', { name, args });
         const method = this.methods.get(name);
         if (!method) throw new Error(`Method "${name}" not found in block "${this.type}".`);
         return method(...args);
@@ -426,7 +428,10 @@ export class Block {
 
 
     /** @returns {import('../utils/operations.utils').Operation[]} */
-    prepareDestroy = () => this.parent ? this.parent.prepareRemove({ ids: [this.id] }) : [];
+    prepareDestroy = () => {
+        const ops = this.parent ? this.parent.prepareRemove({ ids: [this.id] }) : [];
+        return ops;
+    }
 
     destroy = () => this.codex?.tx(this.prepareDestroy()).execute()
 
@@ -483,6 +488,17 @@ export class MegaBlock extends Block {
         this.trine('insert', this.prepareInsert.bind(this), this.insert, this.applyInsert);
         this.trine('remove', this.prepareRemove.bind(this), this.remove, this.applyRemove);
         this.trine('replace', this.prepareReplace.bind(this), this.replace, this.applyReplace);
+
+        $effect.root(() => {
+            $effect(() => {
+                this.children.forEach((child, i) => {
+                    child.parent = this;
+                    child.i = i;
+                });
+            })
+
+            $effect(() => this.recursive && untrack(() => console.log('Recursives changed!')));
+        })
     }
 
     /** @type {MegaBlockManifest} */
@@ -516,11 +532,14 @@ export class MegaBlock extends Block {
     children = $state([]);
     
     /** @type {Block[]} */
-    recursive = $derived(this.children.flatMap(child => {
-        if (child instanceof MegaBlock) return [child, ...child.recursive];
-        else return [child];
-    }));
-    
+    recursive = $derived.by(() => {
+        console.log('Calculating recursive blocks');
+        return this.children.flatMap(child => {
+            if (child instanceof MegaBlock) return [child, ...child.recursive];
+            else return [child];
+        });
+    });
+
     endpoints = $derived(this.recursive.filter(block => !(block instanceof MegaBlock)));
     
     /** @param {Block} block */
@@ -714,7 +733,6 @@ export class MegaBlock extends Block {
                 }
                 return new B(this instanceof Codex ? this : this.codex, {in: c});
             })
-            this.log('Setting children from input data:', newChildren);
 
             this.children = newChildren.filter(b => b instanceof Block);
         }
