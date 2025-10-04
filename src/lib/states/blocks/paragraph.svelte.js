@@ -3,7 +3,6 @@ import { Linebreak } from "./linebreak.svelte";
 import { Text } from "./text.svelte";
 import { paragraphStrategies } from "./strategies/paragraph.strategies";
 import { Focus } from "../../values/focus.values";
-import { ParagraphBlockInsertion } from "./operations/paragraph.ops";
 import { BlocksRemoval } from "./operations/block.ops";
 import { SMART, Operation, GETDELTA } from "../../utils/operations.utils";
 import { EDITABLE, INPUTABLE, MERGEABLE, TRANSFORMS_TEXT } from "../../utils/capabilities";
@@ -146,21 +145,13 @@ export class Paragraph extends MegaBlock {
                 const selected = this.children.find(c => c.selected);
                 const index = this.children.findIndex(c => c === selected);
                 const tx = this.codex?.tx([
-                    new ParagraphBlockInsertion(this, {
-                        blocks: [
-                            {
-                                type: 'text',
-                                init: {
-                                    text: e.data
-                                },
-                            }
-                        ],
-                        offset: index
+                    ...this.prepareInsert({
+                        offset: index,
+                        blocks: [{ type: 'text', init: { text: e.data } }]
                     })
                 ]);
                 tx?.execute().then(r => {
                     this.focus(new Focus(selection.start + 1, selection.start + 1));
-
                 });
             }
         }
@@ -698,8 +689,13 @@ export class Paragraph extends MegaBlock {
         json: { type: 'paragraph', children: this.childrenWithoutTrailingLinebreak.map(c => c.values.json) }
     })
 
-
-
+    data() {
+        return {
+            ...super.data(),
+            type: 'paragraph',
+            children: this.childrenWithoutTrailingLinebreak.map(c => c.data())
+        };
+    }
 
     /**
      * @typedef {{ type: 'text', data: string }|string} TextDataType

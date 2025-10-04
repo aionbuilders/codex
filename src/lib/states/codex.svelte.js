@@ -15,10 +15,9 @@ import { codexStrategies } from './strategies/codex.strategies';
 import { Transaction } from '../utils/operations.utils';
 import { History } from './history.svelte';
 import { Focus } from '../values/focus.values';
-import { MinimalPreset } from '../presets';
-import { Perf } from '$lib/utils/performance.utils';
 import { browser } from '$app/environment';
 import { untrack } from 'svelte';
+import { PlainPreset } from '../presets';
 
 export const initialStrategies = [
     ...codexStrategies
@@ -48,7 +47,7 @@ export class Codex extends MegaBlock {
         this.init = init;
 
         /** @type {import('../presets/preset').Preset | null} */
-        this.preset = init.preset || init.preset === null ? init.preset : MinimalPreset;
+        this.preset = init.preset || init.preset === null ? init.preset : PlainPreset;
 
         /** @type {Object<string, import('svelte').Component>} */
         this.components = init.components || {}
@@ -136,46 +135,52 @@ export class Codex extends MegaBlock {
      */
     handleEvent = (e, eventType, strategyTag, ascendCallback) => {
         try {
+            const context = {event: e};
 
-
-        const context = {event: e};
-
-        let currentParent = this.selection?.parent;
-
-        if (currentParent && currentParent instanceof MegaBlock) {
-            if (eventType === 'beforeinput' && currentParent === this) e.preventDefault();
-            
-            while (currentParent) {
-                const strategy = currentParent.strategies?.filter(s => s.tags.includes(strategyTag)).find(s => s.canHandle(this, context));
-                if (strategy) {
-                    e.preventDefault();
-                    strategy.execute(this, {...context, block: currentParent});
-
-                    return;
-                }
-                currentParent = currentParent.parent || (currentParent === this ? null : this);
+            // First check codex-level strategies (tagged with "@codex")
+            const codexStrategy = this.strategies?.filter(s => s.tags.includes('@codex') && s.tags.includes(strategyTag)).find(s => s.canHandle(this, context));
+            if (codexStrategy) {
+                e.preventDefault();
+                codexStrategy.execute(this, {...context, block: this});
+                return;
             }
 
-        } else if (currentParent) {
-            const handlers = this.selection?.anchoredBlocks.map(block => block[eventType]).filter(handler => typeof handler === 'function');
-            if (handlers.length === 0) return;
-            
-            let handler = handlers.at(-1);
-            /** @param {any} data */
-            const ascend = (data) => {
-                const hIndex = handlers.indexOf(handler);
-                if (hIndex > 0) {
-                    handler = handlers[hIndex - 1];
-                    handler(e, ascend, data);
-                } else if (ascendCallback && data) {
-                    // Event has ascended to codex level - use callback instead of full dispatch
-                    ascendCallback(data);
+            let currentParent = this.selection?.parent;
+
+            if (currentParent && currentParent instanceof MegaBlock) {
+                if (eventType === 'beforeinput' && currentParent === this) e.preventDefault();
+                
+                while (currentParent) {
+                    const strategy = currentParent.strategies?.filter(s => s.tags.includes(strategyTag)).find(s => s.canHandle(this, context));
+                    if (strategy) {
+                        e.preventDefault();
+                        strategy.execute(this, {...context, block: currentParent});
+
+                        return;
+                    }
+                    currentParent = currentParent.parent || (currentParent === this ? null : this);
                 }
-            };
-            handler(e, ascend);
-        } else if (eventType === 'beforeinput') {
-            e.preventDefault();
-        }
+
+            } else if (currentParent) {
+                const handlers = this.selection?.anchoredBlocks.map(block => block[eventType]).filter(handler => typeof handler === 'function');
+                if (handlers.length === 0) return;
+                
+                let handler = handlers.at(-1);
+                /** @param {any} data */
+                const ascend = (data) => {
+                    const hIndex = handlers.indexOf(handler);
+                    if (hIndex > 0) {
+                        handler = handlers[hIndex - 1];
+                        handler(e, ascend, data);
+                    } else if (ascendCallback && data) {
+                        // Event has ascended to codex level - use callback instead of full dispatch
+                        ascendCallback(data);
+                    }
+                };
+                handler(e, ascend);
+            } else if (eventType === 'beforeinput') {
+                e.preventDefault();
+            }
         } catch (error) {
 
         }
@@ -262,6 +267,15 @@ export class Codex extends MegaBlock {
      * }} focus
      */
     setRange = focus => this.selection.setRange(focus.start.node, focus.start.offset, focus.end?.node || focus.start.node, focus.end?.offset || focus.start.offset);
+
+    getSelection = () => {
+        const startBlock = this.children.find(b => b.selected);
+        const endBlock = this.children.findLast(b => b.selected);
+        return {
+            start: startBlock && startBlock.start + (startBlock.selection ? startBlock.selection.start : 0) || 0,
+            end: endBlock && endBlock.start + (endBlock.selection ? endBlock.selection.end : 0) || 0,
+        }
+    }
 
     /** @param {Omit<CodexInit, 'preset'>} init */
     static blank(init = {}) {

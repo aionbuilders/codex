@@ -103,6 +103,7 @@ export class Block {
         this.exporters = new Map();
 
         this.method('delete', () => this.rm());
+
     }
 
     $init() {
@@ -126,7 +127,6 @@ export class Block {
 
     unlink = $derived(this.codex?.recursive.includes(this) === false);
     
-
     /** @type {Number} */
     i = $state(-1);
 
@@ -143,10 +143,10 @@ export class Block {
     parents = $derived(this.parent ? [...this.parent.parents, this.parent] : []);
     
     /** @type {Block?} */
-    before = $derived((this.index && this.parent instanceof MegaBlock && this.parent.children?.find(b => b.index === this.index - 1)) || null);
+    before = $state(null)
     
     /** @type {Block?} */
-    after = $derived((this.index && this.parent instanceof MegaBlock && this.parent.children?.find(b => b.index === this.index + 1)) || null);
+    after = $state(null);
 
     /** @type {Boolean} */
     first = $derived(this.parent?.children[0] === this);
@@ -159,6 +159,7 @@ export class Block {
     
     selected = $derived.by(() => {
         if (!this.codex?.selection.isInside) return false;
+        this.codex?.selection?.range;
         return untrack(() => this.element ? this.codex?.selection?.range?.intersectsNode(this.element) : false);
     });
     
@@ -171,8 +172,8 @@ export class Block {
         else return [];
     });
 
-    /** @type {({start: number, end: number} & Object<any, any>) | null | undefined} */
-    selection = $derived({
+    /** @type {({start: number, end: number} & Object<string, any>) | null | undefined} */
+    selection = $state({
         start: 0,
         end: 0,
     });
@@ -402,6 +403,15 @@ export class Block {
    
     }
 
+
+    data() {
+        return {
+            id: this.id,
+            type: this.type,
+            metadata: this.metadata
+        };
+    }
+
     toJSON() {
         return {
             id: this.id,
@@ -493,11 +503,11 @@ export class MegaBlock extends Block {
             $effect(() => {
                 this.children.forEach((child, i) => {
                     child.parent = this;
+                    child.before = this.children[i - 1] || null;
+                    child.after = this.children[i + 1] || null;
                     child.i = i;
                 });
             })
-
-            $effect(() => this.recursive && untrack(() => console.log('Recursives changed!')));
         })
     }
 
@@ -533,7 +543,6 @@ export class MegaBlock extends Block {
     
     /** @type {Block[]} */
     recursive = $derived.by(() => {
-        console.log('Calculating recursive blocks');
         return this.children.flatMap(child => {
             if (child instanceof MegaBlock) return [child, ...child.recursive];
             else return [child];
@@ -552,7 +561,7 @@ export class MegaBlock extends Block {
     prepareInsert = preparer(/** @param {import('./blocks/operations/block.ops').BlocksInsertionData & { block?: BlockData }} data */ data => {
         let {offset} = data;
 
-        if (!offset) offset = this.children.length;
+        offset ??= this.children.length;
         if (offset < 0) offset = this.children.length + offset + 1;
         if (offset < 0) offset = 0;
         if (offset > this.children.length) offset = this.children.length;
@@ -658,6 +667,8 @@ export class MegaBlock extends Block {
         /** @type {{ offset: number, blocks: BlockData[] }} */
         const data = op.data;
 
+        this.log("Inserting blocks", data.blocks.map(b => b.type), "at", data.offset);
+
         /** @type {T[]} */
         const blocks = data.blocks.map(({type, init}) => {
             this.log(this.blocks)
@@ -680,7 +691,9 @@ export class MegaBlock extends Block {
         const data = op.data;
 
         const removed = this.children.filter(child => data.ids.includes(child.id));
+        this.log("Removing blocks", removed.map(b => b.type), "with IDs", data.ids);
         this.children = this.children.filter(child => !data.ids.includes(child.id));
+        this.log("Remaining blocks", this.children.map(b => b.type));
         return removed;
     })
 
@@ -713,6 +726,13 @@ export class MegaBlock extends Block {
         return {
             ...super.toJSON(),
             children: this.children.map(child => child.toJSON())
+        };
+    }
+
+    data() {
+        return {
+            ...super.data(),
+            children: this.children.map(child => child.data())
         };
     }
 

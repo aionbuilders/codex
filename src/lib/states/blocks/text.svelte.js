@@ -1,6 +1,6 @@
 import { untrack } from 'svelte';
 import { Block } from '../block.svelte';
-import { TextDeleteOperation, TextEdition, TextInsertOperation } from './operations/text.ops';
+import { TextEdition } from './operations/text.ops';
 import { Focus } from '../../values/focus.values';
 import { applier, executor, SMART, Transaction } from '../../utils/operations.utils';
 import { EDITABLE, TRANSFORMS_TEXT } from '../../utils/capabilities';
@@ -217,11 +217,6 @@ export class Text extends Block {
             this.element.textContent = this.text;
         }
     }
-
-    
-
-    
-    
     
     /**
     * @param {Focus} f 
@@ -267,7 +262,15 @@ export class Text extends Block {
             return;
         }
     }
-    
+
+    data() {
+        return {
+            ...super.data(),
+            type: 'text',
+            text: this.text,
+            styles: this.getStyles()
+        };
+    }
     
     // /** @returns {TextObject} */
     toJSON() {

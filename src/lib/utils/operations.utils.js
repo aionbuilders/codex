@@ -1,22 +1,36 @@
+import { Focus } from '$lib/values/focus.values';
 import { tick } from 'svelte';
-import { Perf } from './performance.utils';
 
+
+/** @typedef {import('../states/block.svelte').Block} Block */
+
+/**
+ * @template {Block} [B=Block]
+ * @template {Object} [D=Object]
+ */
 export class Operation {
-    /** @param {import('../states/block.svelte').Block} block  @param {String} name @param {any} data @param {Operation} [undo] */
-    constructor(block, name, data = {}, undo) {
+    /** @param {B} block @param {String} name @param {D} data */
+    constructor(block, name, data = /** @type {D} */ ({})) {
+        /** @type {B} */
         this.block = block;
         this.name = name;
+
+        /** @type {D} */
         this.data = data;
-        this.undo = undo;
+
         /** @type {Object<any, any>} */
         this.metadata = {};
+
+        /** @type {any} */
+        this.results = null;
     }
 
     /**
-     * @param {Transaction} tx 
+     * @param {Transaction} [tx] 
      */
     execute(tx) {
         const result = this.block.call(this.name, this);
+        this.results = result;
         if (tx && tx instanceof Transaction) {
             tx.results.push({ operation: this, result });
             tx.executed.push(this);
@@ -40,22 +54,39 @@ export class Operation {
     get debug() {
         return ``;
     }
+
+    /** @returns {Operation[] | null} */
+    undo() {
+        return null;
+    }
 }
 
 
 export class Transaction {
 
-    /** @param {Operation[]} [ops] @param {import('../states/codex.svelte').Codex} [codex] */
-    constructor(ops = [], codex) {
+    /** @param {Operation[]} [ops] @param {import('../states/codex.svelte').Codex} [codex] @param {Transaction?} [undoing] */
+    constructor(ops = [], codex, undoing = null) {
         this.codex = codex;
         this.operations = new Set(ops);
+        
+        /** @type {Transaction?} - Tx that is being undone */
+        this.undoing = undoing;
 
         /** @type {Set<function(Transaction): Operation[]>} */
         this.afters = new Set();
 
-
         this.temp = new Map();
         this.uuid = crypto.randomUUID();
+        
+        /** @type {Number?} */
+        this.executedAt = null;
+
+        /** @type {({start: number, end: number} & Object<string, any>) | null | undefined} */
+        this.selectionBefore = null;
+
+        /** @type {({start: number, end: number} & Object<string, any>) | null | undefined} */
+        this.selectionAfter = null;
+
     }
 
     /** @type {Array<{ operation: Operation, result: any }>} */
@@ -64,54 +95,79 @@ export class Transaction {
     /** @type {Array<Operation>} */
     executed = [];
 
-    async execute() {
+    /** @param {boolean} [redoing] */
+    async execute(redoing = false) {
         if (this.codex) this.codex.history.current = this;
-        const beforeSelection = this.codex?.selection?.range;
+        this.selectionBefore = this.codex?.getSelection() || {start: 0, end: 0};
 
         try {
-
-            for (const op of this.operations) {
-
-                op.execute(this);
+            if (redoing) {
+                for (const op of this.executed) op.execute();
+            } else {
+                for (const op of this.operations) op.execute(this);
+                for (const after of this.afters) after(this).forEach(op => op.execute(this));
+                await tick().then(() => this.commit());
             }
-            
-            for (const after of this.afters) {
-                after(this).forEach(op => op.execute(this));
-            }
-            await tick().then(() => this.commit());
 
+            this.executedAt = Date.now();
             return this.results;
         } catch (error) {
+
             for (let i = this.executed.length - 1; i >= 0; i--) {
                 const op = this.executed[i];
                 if (op.undo) {
                     try {
-                        op.undo.execute(this);
+                        const operations = op.undo();
+                        operations?.forEach(op => op.execute());
                     } catch (undoError) {
                         console.error('Erreur lors du rollback:', undoError);
                     }
                 }
             }
-            this.codex?.selection?.setRange(beforeSelection?.startContainer, beforeSelection?.startOffset, beforeSelection?.endContainer, beforeSelection?.endOffset);
+            console.error('Erreur lors de l\'exécution de la transaction:', error);
             throw error;
         } finally {
-
-
             if (this.codex) this.codex.history.current = null;
         }
     }
 
-
-    /** @param {function(Transaction): Operation[]} callback*/
+    /** @param {function(Transaction): Operation[]} callback **/
     after = callback => {
         if (typeof callback === 'function') this.afters.add(callback);
         return this;
     }
 
     commit = () => {
-        if (this.codex) {
-            this.codex.history.add(this);
+        if (this.undoing) return;
+        if (this.codex) this.codex.history.commit(this);
+    }
+
+    undo() {
+        const undoOps = [];
+        for (let i = this.executed.length - 1; i >= 0; i--) {
+            const op = this.executed[i];
+            if (op.undo) {
+                const undos = op.undo();
+                if (undos && undos.length) {
+                    undoOps.push(...undos);
+                }
+            }
         }
+
+        const tx = new Transaction(undoOps, this.codex, this);
+        tx.execute().then(() => {
+            if (!this.selectionBefore) return;
+            const data = this.codex?.getFocusData(new Focus(this.selectionBefore.start, this.selectionBefore.end));
+            if (data) this.codex?.focus({
+                start: { node: data.startElement, offset: data.startOffset },
+                end: { node: data.endElement, offset: data.endOffset },
+            });
+        }).catch(console.error);
+
+    }
+
+    redo() {
+        this.execute(true).catch(console.error);
     }
 
     toJSON() {

@@ -6,10 +6,6 @@ export class CodexSelection extends SvelteSelection {
     constructor(codex) {
         super();
         this.codex = codex;
-
-        // $effect.root(() => {
-        //     $inspect(this.range, 'selection range changed');
-        // })
     }
     
     /** @type {Node?} */

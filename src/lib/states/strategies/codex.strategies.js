@@ -14,12 +14,10 @@ import { Perf } from "$lib/utils/performance.utils";
 const replace = (codex, data) => {
     const $REFOCUS = Symbol('refocus');
 
-    console.log('Codex children:', codex.children);
     const startBlock = codex.children.find(child => child.selected);
     const startPosition = startBlock && (startBlock.start + (startBlock.selection ? startBlock.selection.start : 0)) || 0;
     const endBlock = codex.children.findLast(child => child.selected && child !== startBlock);
     const betweenBlocks = ((startBlock && endBlock) && codex.children.slice(codex.children.indexOf(startBlock) + 1, codex.children.indexOf(endBlock))) || []; 
-    console.log({ startBlock, endBlock, betweenBlocks });
 
     const isThereSelectedBlocksBeforeEnd = betweenBlocks.length || (startBlock && endBlock && startBlock !== endBlock);
 
@@ -61,7 +59,7 @@ const replace = (codex, data) => {
             }
         }
     }
-
+    
 
     if (ops.length) {
 
@@ -131,7 +129,36 @@ export const beforeInputStrategy = new Strategy(
     }
 ).tag('beforeinput').tag('codex');
 
+
+/**
+ * @typedef {Object} CodexUndoRedoContext
+ * @property {KeyboardEvent} event - The keyboard event that triggered the strategy.
+ */
+export const UndoRedoStrategy = new Strategy(
+    '@codex/undo-redo-strategy',
+    (codex, /** @type {CodexUndoRedoContext} */ context) => {
+        const isUndo = (context.event.ctrlKey || context.event.metaKey) && !context.event.shiftKey && context.event.key === 'z';
+        const isRedo = (context.event.ctrlKey || context.event.metaKey) && (context.event.shiftKey && context.event.key === 'Z' || context.event.key === 'y');
+        return isUndo || isRedo;
+    },
+    (codex, /** @type {CodexUndoRedoContext} */ context) => {
+        console.log('UndoRedoStrategy triggered');
+        const isUndo = (context.event.ctrlKey || context.event.metaKey) && !context.event.shiftKey && context.event.key === 'z';
+        const isRedo = (context.event.ctrlKey || context.event.metaKey) && (context.event.shiftKey && context.event.key === 'Z' || context.event.key === 'y');
+        context.event.preventDefault();
+        console.log('Performing', isUndo ? 'undo' : 'redo');
+        if (isUndo) {
+            codex.history.undo();
+        } else if (isRedo) {
+            codex.history.redo();
+        }
+    }
+).tag('@codex').tag('undo-redo').tag('keydown').tag('ctrl+z').tag('ctrl+shift+z').tag('ctrl+y').tag('cmd+z').tag('cmd+shift+z');
+
 export const codexStrategies = [
     multiBlockBackspaceStrategy,
-    beforeInputStrategy
+    beforeInputStrategy,
+    UndoRedoStrategy
 ];
+
+

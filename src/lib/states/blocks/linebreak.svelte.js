@@ -106,10 +106,20 @@ export class Linebreak extends Block {
         }
     }
 
+
+    data() {
+        return {
+            ...super.data(),
+            type: 'linebreak'
+        };
+    }
+
     values = $derived({
         json: { type: 'linebreak' },
         text: '\n'
     })
+
+
 
 
     /** 

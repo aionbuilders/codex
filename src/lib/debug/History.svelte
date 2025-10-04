@@ -37,7 +37,7 @@
 <div class="_" style="height: {height}px;">
     <div class="resize-handle" role="button" tabindex="0" onmousedown={handleMouseDown}></div>
     <div class="history" >
-        {#each history as tx}
+        {#each history.transactions as tx}
             <Transaction {tx} />
         {/each}
     </div>

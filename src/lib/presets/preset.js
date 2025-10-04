@@ -4,6 +4,7 @@
  *  blocks?: Array<typeof import('../states/block.svelte').Block>,
  *  systems?: Array<typeof import('../states/system.svelte').System>,
  *  extends?: Preset,
+ *  config?: Record<string, any>,
  * }} PresetInit
  */
 

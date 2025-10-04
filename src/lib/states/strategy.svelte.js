@@ -18,6 +18,12 @@ export class Strategy {
 
         /** @type {String[]} */
         this.tags = [];
+
+        /** @type {boolean} - Whether this strategy should be checked at codex level (priority) */
+        this.priority = false;
+
+        /** @type {boolean} - Whether this strategy can work without block selection */
+        this.soloBlock = false;
     }
     
     

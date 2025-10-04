@@ -9,7 +9,7 @@
 
 <div class="debug">
     <Structure {codex} />
-    <Selection {codex} />
+    <!-- <Selection {codex} /> -->
     <History {codex} />
 </div>
 
