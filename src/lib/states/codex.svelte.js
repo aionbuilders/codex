@@ -9,7 +9,7 @@
 */
 
 import CodexComponent from '../components/Codex.svelte';
-import { MegaBlock } from './block.svelte';
+import { Block, MegaBlock } from './block.svelte';
 import { CodexSelection } from './selection.svelte';
 import { codexStrategies } from './strategies/codex.strategies';
 import { Transaction } from '../utils/operations.utils';
@@ -17,6 +17,7 @@ import { History } from './history.svelte';
 import { browser } from '$app/environment';
 import { untrack } from 'svelte';
 import { PlainPreset } from '../presets';
+import { SvelteMap } from 'svelte/reactivity';
 
 export const initialStrategies = [
     ...codexStrategies
@@ -39,8 +40,6 @@ export class Codex extends MegaBlock {
     */
     constructor(init = {}) {
         super(null, init);
-        
-        browser && performance.mark('codex#init-start');
 
         /** @type {CodexInit} */
         this.init = init;
@@ -52,6 +51,9 @@ export class Codex extends MegaBlock {
         this.components = init.components || {}
         this.selection = new CodexSelection(this);
         this.history = new History();
+
+        /** @type {Map<string, Block>} */
+        this.registry = new SvelteMap();
 
         this.omited = {
             blocks: init.omit?.filter(name => name.startsWith('block:')).map(name => name.replace('block:', '')) || [],
@@ -76,15 +78,18 @@ export class Codex extends MegaBlock {
 
             $effect(() => {
                 this.recursive;
-                untrack(() => { this.recursive.forEach((b, i) => b.index = i);})
+                untrack(() => { 
+                    this.registry.clear();
+                    this.recursive.forEach((b, i) => {
+                        b.index = i;
+                        this.registry.set(b.id, b);
+                    });
+                    console.log('Registry updated:', [...this.registry.values()]);
+                })
             });
         })
 
         this.$init();
-
-        browser && performance.mark('codex#init-end');
-        browser && performance.measure('codex#init', 'codex#init-start', 'codex#init-end');
-        console.log(performance.getEntriesByName('codex#init'));
     }
 
     get blocks() {

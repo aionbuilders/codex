@@ -30,7 +30,10 @@ const replace = (paragraph, content) => {
 
     const ops = [];
 
-
+    ops.push(...(end instanceof Text ? end.prepareEdit({
+        from: 0,
+        to: end.selection?.end || 0
+    }) : paragraph.prepareRemove({ ids: [end.id] })));
     if (between.length) ops.push(...paragraph.prepareRemove({
         ids: between.map(b => b.id)
     }));
@@ -38,10 +41,7 @@ const replace = (paragraph, content) => {
         from: start.selection?.start || 0,
         to: start.text.length
     }) : paragraph.prepareRemove({ ids: [start.id] })));
-    ops.push(...(end instanceof Text ? end.prepareEdit({
-        from: 0,
-        to: end.selection?.end || 0
-    }) : paragraph.prepareRemove({ ids: [end.id] })));
+    
 
     if (content?.length) ops.push(...paragraph.prepareInsert({
         blocks: content,

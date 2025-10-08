@@ -29,6 +29,12 @@ export class Operation {
      * @param {Transaction} [tx] 
      */
     execute(tx) {
+        console.log('Executing operation:', this, 'in transaction:', tx?.uuid);
+        console.log(tx?.codex?.registry.get(this.block.id), this.block);
+        const block = tx?.codex?.registry.get(this.block.id) || this.block;
+        if (!block) throw new Error(`Block with id ${this.block.id} not found in codex registry`);
+        this.block = block;
+        
         const result = this.block.call(this.name, this);
         this.results = result;
         if (tx && tx instanceof Transaction) {
@@ -105,12 +111,9 @@ export class Transaction {
 
         try {
             if (redoing) {
-                
-                console.log('Redo transaction', this.uuid, 'with', this.executed, 'operations');
-                // console.trace();
                 if (this.undone) this.undone.undo();
+
                 // for (const op of this.executed) op.execute();
-                // console.log('Refocus with', this.selectionAfter);
                 // if (this.selectionAfter) this.codex?.focus(this.selectionAfter);
                 
             } else {
@@ -164,8 +167,11 @@ export class Transaction {
             }
         }
 
+        
         const tx = new Transaction(undoOps, this.codex, this);
-        tx.execute().then(() => {
+        console.log('Undoing', this.executed, ' with ops:', undoOps);
+        tx.execute().then(tx => {
+            console.log('TX undone', tx);
             if (!this.selectionBefore) return;
 
             this.codex?.focus({ start: this.selectionBefore.start, end: this.selectionBefore.end });

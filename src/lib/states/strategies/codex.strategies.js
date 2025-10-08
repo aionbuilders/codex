@@ -27,14 +27,12 @@ const replace = (codex, data) => {
     /** @type {import('../../utils/operations.utils').Operation[]} */
     const ops = [];
 
-    console.log("Start block:", startBlock);
     
     if (endBlock && endBlock !== startBlock) ops.push(...(endBlock ? (endBlock.prepare('remove')): []));
-    console.log("Between blocks:", betweenBlocks);
     
     if (betweenBlocks.length) ops.push(...codex.prepareRemove({ids: betweenBlocks.map(b => b.id)}));
 
-    ops.push(...(startBlock ? (startBlock.prepare('remove')): []));
+    
     
 
     if (data) {
@@ -59,7 +57,7 @@ const replace = (codex, data) => {
                 //TODO: implement next block input if next is not null and startBlock cannot accept all blocks
             }
         }
-    }
+    } else ops.push(...(startBlock ? (startBlock.prepare('remove')): []));
     
 
     if (ops.length) {
@@ -144,7 +142,6 @@ export const UndoRedoStrategy = new Strategy(
         return isUndo || isRedo;
     },
     (codex, /** @type {CodexUndoRedoContext} */ context) => {
-        console.log('UndoRedoStrategy triggered');
         const isUndo = (context.event.ctrlKey || context.event.metaKey) && !context.event.shiftKey && context.event.key === 'z';
         const isRedo = (context.event.ctrlKey || context.event.metaKey) && (context.event.shiftKey && context.event.key === 'Z' || context.event.key === 'y');
         context.event.preventDefault();

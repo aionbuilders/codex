@@ -32,7 +32,7 @@
               onmouseleave={handleMouseLeave}>
             {block.type}
             {#if showTooltip}
-            <div class="tooltip">ID: {block.id}</div>
+            <div class="tooltip">{block.id}<br>{block.uuid}</div>
             {/if}
         </span>
         <p class="debug">{block.debug}</p>

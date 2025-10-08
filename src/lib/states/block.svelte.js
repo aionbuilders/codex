@@ -104,6 +104,7 @@ export class Block {
 
         this.method('delete', () => this.rm());
 
+        this.uuid = crypto.randomUUID();
     }
 
     $init() {
@@ -136,8 +137,18 @@ export class Block {
     index = $state(-1);
     
     /** @type {MegaBlock?} */
-    // parent = $derived(this.type === "codex" ? null : this.codex?.recursive.find(block => block instanceof MegaBlock && block?.children.includes(this)) || this.codex);
-    parent = $state(null);
+    #parent = $state(null);
+
+
+    get parent() {
+        return this.#parent;
+    }
+
+    /** @param {MegaBlock?} value */
+    set parent(value) {
+        if (this.#parent?.children.includes(this) && value !== this.#parent) throw new Error('Cannot reassign parent: already a child of the current parent. Remove from current parent first.');
+        this.#parent = value;
+    }
 
     /** @type {MegaBlock[]} */
     parents = $derived(this.parent ? [...this.parent.parents, this.parent] : []);
@@ -172,7 +183,7 @@ export class Block {
         else return [];
     });
 
-    /** @type {({start: number, end: number} & Object<string, any>) | null | undefined} */
+    /** @type {({start?: number, end?: number} & Object<string, any>) | null | undefined} */
     selection = $state({
         start: 0,
         end: 0,
@@ -501,6 +512,18 @@ export class MegaBlock extends Block {
     constructor(codex, init = {}) {
         super(codex, init);
 
+        if (init?.children) {
+            console.log('Initializing mega block with children:', init.children);
+            this.children = init.children.map(child => {
+                const B = this.blocks.find(B => B.manifest.type === child.type);
+                if (!B) throw new Error(`Unknown block type: ${child.type}`);
+                const b = new B(this.codex, { ...child, ...(child.init || {}) });
+                this.codex?.registry.set(b.id, b);
+                console.log('Registered block:', b);
+                return b;
+            })
+        }
+
         this.trine('insert', this.prepareInsert.bind(this), this.insert, this.applyInsert);
         this.trine('remove', this.prepareRemove.bind(this), this.remove, this.applyRemove);
         this.trine('replace', this.prepareReplace.bind(this), this.replace, this.applyReplace);
@@ -673,14 +696,18 @@ export class MegaBlock extends Block {
         /** @type {{ offset: number, blocks: BlockData[] }} */
         const data = op.data;
 
-        this.log("Inserting blocks", data.blocks.map(b => b.type), "at", data.offset);
+        this.log("Inserting blocks", data.blocks, "at", data.offset);
 
         /** @type {T[]} */
-        const blocks = data.blocks.map(({type, init}) => {
+        const blocks = data.blocks.map((b) => {
+            const {type, init} = b;
             this.log(this.blocks)
             const B = this.blocks.find(B => B.manifest.type === type);
             if (!B) throw new Error(`Block type "${type}" not found in mega block.`);
-            return new B(this instanceof Codex ? this : this.codex, init);
+            const block = new B(this instanceof Codex ? this : this.codex, { ...b, ...(init || {})});
+            this.codex?.registry.set(block.id, block);
+            this.log('Registered block:', block);
+            return block;
         }).filter(b => b instanceof Block);
 
         this.children = [
@@ -695,11 +722,14 @@ export class MegaBlock extends Block {
     applyRemove = applier(op => {
         /** @type {{ ids: string[] }} */
         const data = op.data;
-
         const removed = this.children.filter(child => data.ids.includes(child.id));
         this.log("Removing blocks", removed.map(b => b.type), "with IDs", data.ids);
         this.children = this.children.filter(child => !data.ids.includes(child.id));
         this.log("Remaining blocks", this.children.map(b => b.type));
+        removed.forEach(b => {
+            if (b.parent === this) b.parent = null;
+            if (!b.parent && this.codex?.registry.has(b.id)) this.codex?.registry.delete(b.id);
+        })
         return removed;
     })
 
@@ -721,6 +751,11 @@ export class MegaBlock extends Block {
             ...blocks,
             ...this.children.slice(data.to)
         ];
+
+        removed.forEach(b => {
+            if (b.parent === this) b.parent = null;
+            if (!b.parent && this.codex?.registry.has(b.id)) this.codex?.registry.delete(b.id);
+        });
 
         return {removed, added: blocks};
     })

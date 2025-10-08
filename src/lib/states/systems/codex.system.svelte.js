@@ -56,7 +56,6 @@ export class DataTransformSystem extends System {
      */
     handleInput(raw) {
         if (!raw) return null;
-        console.log('DataTransformSystem received input:', raw);
         
 
         // Cas 1: Données du clipboard avec métadonnées (format moderne)
@@ -218,7 +217,6 @@ export class DataTransformSystem extends System {
         // Nettoyer le texte et détecter les structures simples
         const cleaned = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         const lines = cleaned.split('\n');
-        console.log({lines});
         
         
 

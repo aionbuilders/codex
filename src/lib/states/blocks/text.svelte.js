@@ -44,6 +44,8 @@ export class Text extends Block {
     * @param {TextInit} init */
     constructor(codex, init = {}) {
         super(codex, init);
+        this.log('Creating text block with init:', init);
+
     
         this.text = init.text || '';
         this.bold = init.bold || false;
@@ -60,6 +62,8 @@ export class Text extends Block {
                     }
                 })
             })
+
+            $inspect(this.uuid, this.text).with(console.trace);
         });
         
         this.trine("edit", this.prepareEdit, this.edit, this.applyEdit);
@@ -206,7 +210,6 @@ export class Text extends Block {
     /** Refreshes the text content from the element */
     refresh = () => {
         if (this.element) this.text = this.element.textContent;
-        else this.text = '';
     }
     
     /** Resyncs the text content with the element */
@@ -236,7 +239,6 @@ export class Text extends Block {
     * @returns
     */
     getFocusData(f) {
-        console.trace('Getting focus data for', f);
         let { start = f.offset || 0, end = f.offset || 0 } = f;
         if (start < 0) start = this.text.length + (start + 1);
         if (end < 0) end = this.text.length + (end + 1);
@@ -420,9 +422,12 @@ export class Text extends Block {
 
     applyEdit = applier(op => {
         /** @type {EditData} */
+        console.log('Applying text edit operation:', op);
         let {text = "", from, to} = op.data;
+        console.log('Before edit:', this.text);
         to = to ?? from;
         this.text = this.text.slice(0, from) + text + this.text.slice(to);
+        console.log('After edit:', this.text);
         this.resync();
         this.refresh();
     })

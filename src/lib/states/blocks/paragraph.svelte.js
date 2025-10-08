@@ -54,15 +54,16 @@ export class Paragraph extends MegaBlock {
     constructor(codex, init = {}) {
         super(codex, init);
 
-        if (init.children?.length) {
-            this.children = init.children.map((b) => {
-                const { type, init = {} } = b;
+        // if (init.children?.length) {
+        //     this.children = init.children.map((b) => {
+        //         const { type, init = {} } = b;
 
-                const B = this.blocks.find(B => B.manifest.type === type);
-                if (!B) throw new Error(`Block type "${type}" not found in paragraph.`);
-                return new B(this.codex, init);
-            }).filter(b => b instanceof Linebreak || b instanceof Text);
-        }
+        //         const B = this.blocks.find(B => B.manifest.type === type);
+        //         if (!B) throw new Error(`Block type "${type}" not found in paragraph.`);
+        //         return new B(this.codex, {...b, ...init});
+        //     }).filter(b => b instanceof Linebreak || b instanceof Text);
+        //     this.log('Initialized paragraph with children:', this.children);
+        // }
 
         this.preparator('merge', this.prepareMerge.bind(this));
         this.preparator('split', this.prepareSplit.bind(this));
@@ -117,7 +118,6 @@ export class Paragraph extends MegaBlock {
         const firstOffset = firstChild && firstChild.start + (firstChild instanceof Text ? firstChild.selection?.start : 0);
         const lastOffset = lastChild && lastChild.start + (lastChild instanceof Text ? lastChild.selection?.end : 1);
 
-
         if (this.selected) return {
             start: firstOffset,
             end: lastOffset,
@@ -142,7 +142,8 @@ export class Paragraph extends MegaBlock {
     onbeforeinput = e => {
         if (e.inputType === 'insertText' && e.data) {
             const selection = this.selection;
-            if (this.selection.isCollapsed && this.children.find(child => child.selected) instanceof Linebreak) {
+            if (!selection) return;
+            if (this.selection?.isCollapsed && this.children.find(child => child.selected) instanceof Linebreak) {
                 const selected = this.children.find(c => c.selected);
                 const index = this.children.findIndex(c => c === selected);
                 const tx = this.codex?.tx([
@@ -152,6 +153,7 @@ export class Paragraph extends MegaBlock {
                     })
                 ]);
                 tx?.execute().then(tx => {
+                    if (selection.start === undefined) return;
                     tx.focus({ start: selection.start + 1, end: selection.start + 1, block: this });
                 });
             }
@@ -191,11 +193,11 @@ export class Paragraph extends MegaBlock {
 
             const obj = this.toInit();
             
-            // if (previousMergeable && previousMergeable !== this) {
-            //     previousMergeable.merge(this)?.then(() => {
-            //         console.log('Merged paragraph into previous block:', previousMergeable);
-            //     })
-            // }
+            if (previousMergeable && previousMergeable !== this) {
+                previousMergeable.merge(this)?.then(() => {
+                    console.log('Merged paragraph into previous block:', previousMergeable);
+                })
+            }
 
             
 
@@ -603,8 +605,6 @@ export class Paragraph extends MegaBlock {
 
         if (content.length) ops.push(...this.prepareEdit({ content }));
 
-        console.log('Prepared input ops:', ops);
-
 
 
         return ops;
@@ -624,6 +624,11 @@ export class Paragraph extends MegaBlock {
         const startIndex = this.children.indexOf(startBlock);
         const ops = [];
 
+
+        if (!(endBlock instanceof Linebreak && endBlock.i === this.children.length - 1)) ops.push(...(endBlock ? (endBlock instanceof Text ? endBlock.prepareEdit({
+            from: 0,
+            to: endBlock.selection?.end || 0,
+        }) : this.prepareRemove({ id: endBlock.id })) : []));
         if (betweenBlocks.length) ops.push(...this.prepareRemove({
             ids: betweenBlocks.map(b => b.id)
         }));
@@ -631,10 +636,7 @@ export class Paragraph extends MegaBlock {
             from: startBlock.selection?.start || 0,
             to: startBlock.text.length
         }) : this.prepareRemove({ id: startBlock.id })) : []));
-        ops.push(...(endBlock ? (endBlock instanceof Text ? endBlock.prepareEdit({
-            from: 0,
-            to: endBlock.selection?.end || 0,
-        }) : this.prepareRemove({ id: endBlock.id })) : []));
+        
 
         if (data?.content?.length) ops.push(...this.prepare('insert', {
             blocks: data.content,
