@@ -1,7 +1,5 @@
 import LinebreakC from "../../components/Linebreak.svelte";
-import { Focus } from "../../values/focus.values";
-import { Block, MegaBlock } from "../block.svelte";
-import { Text } from "./text.svelte";
+import { Block } from "../block.svelte";
 
 
 /**
@@ -78,8 +76,7 @@ export class Linebreak extends Block {
 
     delete = () => this.rm();
 
-    /** @param {Focus} [f] */
-    focus = (f) => requestAnimationFrame(() => {
+    focus = () => requestAnimationFrame(() => {
         if (this.element && this.codex) {
             const strategy = this.parent?.strategies?.find(s => s.tags.includes('refocus'));
             if (strategy && strategy.canHandle(this.codex, { block: this })) {

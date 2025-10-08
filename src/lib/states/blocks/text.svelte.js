@@ -1,10 +1,11 @@
 import { untrack } from 'svelte';
 import { Block } from '../block.svelte';
 import { TextEdition } from './operations/text.ops';
-import { Focus } from '../../values/focus.values';
 import { applier, executor, SMART, Transaction } from '../../utils/operations.utils';
 import { EDITABLE, TRANSFORMS_TEXT } from '../../utils/capabilities';
 import TextC from '../../components/Text.svelte';
+
+/** @typedef {import('../../types').Focus} Focus */
 
 /**
 * @typedef {import('../block.svelte').BlockInit & {
@@ -153,8 +154,9 @@ export class Text extends Block {
                     block: this,
                 });
             }
-            this.edit({ from: start, to: end });
-            this.focus(new Focus(start, start));
+            this.edit({ from: start, to: end }).then(tx => {
+                tx.focus({ start, end: start, block: this });
+            })
         } else if ((isBackspace && start === 0) || (!isBackspace && end === this.text.length)) {
             return ascend({
                 action: 'nibble',
@@ -170,13 +172,10 @@ export class Text extends Block {
         } else {
             const from = isBackspace ? start - 1 : start;
             const to = isBackspace ? start : start + 1;
-            const length = to - from;
-
             this.edit({
                 from,
                 to
-            })
-            this.focus(new Focus(from, from))
+            }).then(tx => tx.focus({ start: from, end: from, block: this }) );
         }
     }
     
@@ -199,9 +198,8 @@ export class Text extends Block {
                 text: e.data,
                 from: start,
                 to: end
-            });
+            }).then(tx => tx.focus({ start: (start ?? this.text.length) + e.data.length, end: (start ?? this.text.length) + e.data.length, block: this }));
             e.preventDefault();
-            this.focus(new Focus((start ?? this.text.length) + e.data.length, (start ?? this.text.length) + e.data.length));
         }
     }
     
@@ -237,8 +235,9 @@ export class Text extends Block {
     * @param {Focus} f
     * @returns
     */
-    getFocusData = (f) => {
-        let { start, end } = f;
+    getFocusData(f) {
+        console.trace('Getting focus data for', f);
+        let { start = f.offset || 0, end = f.offset || 0 } = f;
         if (start < 0) start = this.text.length + (start + 1);
         if (end < 0) end = this.text.length + (end + 1);
         if (start > this.text.length || end > this.text.length || start < 0 || end < 0) {

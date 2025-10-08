@@ -2,12 +2,13 @@ import { Block, MegaBlock } from "../block.svelte";
 import { Linebreak } from "./linebreak.svelte";
 import { Text } from "./text.svelte";
 import { paragraphStrategies } from "./strategies/paragraph.strategies";
-import { Focus } from "../../values/focus.values";
 import { BlocksRemoval } from "./operations/block.ops";
 import { SMART, Operation, GETDELTA } from "../../utils/operations.utils";
 import { EDITABLE, INPUTABLE, MERGEABLE, TRANSFORMS_TEXT } from "../../utils/capabilities";
 import ParagraphC from "../../components/Paragraph.svelte";
 import { Perf } from "$lib/utils/performance.utils";
+
+/** @typedef {import('../../types').Focus} Focus */
 
 /** 
 * @typedef {(import('./text.svelte').TextObject|import('./linebreak.svelte').LinebreakObject)[]} ParagraphContent
@@ -94,7 +95,7 @@ export class Paragraph extends MegaBlock {
                     const ops = [ new BlocksRemoval(this, {ids: empties.map(empty => empty.id)}) ];
                     const selection = this.selection;
                     this.codex?.effect(ops);
-                    if (selection?.isInParagraph) this.focus(new Focus(selection.start, selection.end));
+                    if (selection?.isInParagraph) this.focus({ start: selection.start, end: selection.end });
                 }
             })
 
@@ -150,8 +151,8 @@ export class Paragraph extends MegaBlock {
                         blocks: [{ type: 'text', init: { text: e.data } }]
                     })
                 ]);
-                tx?.execute().then(r => {
-                    this.focus(new Focus(selection.start + 1, selection.start + 1));
+                tx?.execute().then(tx => {
+                    tx.focus({ start: selection.start + 1, end: selection.start + 1, block: this });
                 });
             }
         }
@@ -167,12 +168,14 @@ export class Paragraph extends MegaBlock {
 
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            this.codex?.tx(this.prepareSplit()).execute().then(ops => {
+            const tx = this.codex?.tx(this.prepareSplit());
+            tx.execute().then(tx => {
+                const ops = tx.results;
                 
                 const op = ops?.find(o => o.operation.metadata?.key === 'new-paragraph');
                 const newParagraph = op?.result?.[0];
                 if (newParagraph) {
-                    newParagraph.focus(new Focus(0, 0));
+                    tx.focus({ start: 0, end: 0, block: newParagraph });
                 } else {
                     console.error('No new paragraph found in operations:', ops);
                 }
@@ -206,12 +209,14 @@ export class Paragraph extends MegaBlock {
                 if (block) {
                     const selection = this.selection;
                     e.preventDefault();
-                    this.codex.tx([
+                    const tx = this.codex.tx([
                         ...this.prepareRemove({ ids: [block.id] }),
-                    ]).execute();
-                    const offset = key === 'Backspace' ? selection.start - 1 : selection.start;
-                    
-                    this.focus(new Focus(offset, offset));
+                    ])
+                    tx.execute().then(() => {
+                        const offset = key === 'Backspace' ? selection.start - 1 : selection.start;
+                        this.log('Refocusing at offset:', offset);
+                        tx.focus({ start: offset, end: offset, block: this });
+                    });
                     return;
                 }
             } else if (data?.action === 'split') {
@@ -234,8 +239,10 @@ export class Paragraph extends MegaBlock {
                             }},
                             offset: blockIndex + 2
                         }));
-                        this.codex.tx(ops).execute();
-                        this.focus(new Focus(offset + 1, offset + 1));
+                        const tx = this.codex.tx(ops);
+                        tx.execute().then(() => {
+                            tx.focus({ start: offset + 1, end: offset + 1 });
+                        });
                     }
                 }
                 return;
@@ -253,8 +260,10 @@ export class Paragraph extends MegaBlock {
                         from: -2,
                         to: -1
                     }));
-                    this.codex.tx(ops).execute();
-                    this.focus(new Focus(offset, offset));
+                    const tx = this.codex.tx(ops);
+                    tx.execute().then(() => {
+                        tx.focus({ start: offset, end: offset, block: this });
+                    });
 
                 }
 
@@ -302,8 +311,9 @@ export class Paragraph extends MegaBlock {
                     }
                 }
 
-                this.codex?.tx(ops).execute().then(r => {
-                    this.focus(new Focus(offset + 1, offset + 1));
+                const tx = this.codex?.tx(ops);
+                tx?.execute().then(r => {
+                    tx.focus({ start: (offset || 0) + 1, end: (offset || 0) + 1, block: this });
                 });
             }
         }
@@ -344,7 +354,9 @@ export class Paragraph extends MegaBlock {
         // }
     }
 
-    /** @param {Focus} f */
+    /**
+     * @param {Focus} f
+     */
     focus = (f) => requestAnimationFrame(() => {
         if (this.element) {
             const data = this.getFocusData(f);
@@ -375,8 +387,14 @@ export class Paragraph extends MegaBlock {
         let endBlock = this.children.find(child => end >= child.start && end <= child.end);
         if (start === end && startBlock instanceof Linebreak && start === startBlock.end && this.children.find(child => child.start === start)) startBlock = endBlock = this.children.find(child => child.start === start);
 
-        const startData = startBlock ? startBlock.getFocusData(new Focus(start - startBlock.start, start - startBlock.start)) : null;
-        const endData = endBlock ? endBlock.getFocusData(new Focus(end - endBlock.start, end - endBlock.start)) : null;
+        const startData = startBlock ? startBlock.getFocusData({
+            start: start - startBlock.start,
+            end: startBlock === endBlock ? end - startBlock.start : startBlock.length
+        }) : null;
+        const endData = endBlock ? endBlock.getFocusData({
+            start: end - endBlock.start,
+            end: end - endBlock.start
+        }) : null;
 
         if (startData && endData) {
             return {
@@ -401,8 +419,13 @@ export class Paragraph extends MegaBlock {
     merge = source => {
         if (!this.codex) return;
         const offset = (this.end - this.start) - 1;
-        return this.codex.tx(this.prepareMerge(source)).execute().then(() => {
-            this.focus(new Focus(offset, offset));
+        const tx = this.codex.tx(this.prepareMerge(source));
+        return tx.execute().then(() => {
+            tx.focus({
+                start: offset,
+                end: offset,
+                block: this
+            });
         })
     }
     /** @param {import('../../states/block.svelte').Block} source */

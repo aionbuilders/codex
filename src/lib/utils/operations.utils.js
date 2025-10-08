@@ -1,6 +1,6 @@
-import { Focus } from '$lib/values/focus.values';
 import { tick } from 'svelte';
 
+/** @typedef {import('../types').Focus} Focus */
 
 /** @typedef {import('../states/block.svelte').Block} Block */
 
@@ -72,6 +72,9 @@ export class Transaction {
         /** @type {Transaction?} - Tx that is being undone */
         this.undoing = undoing;
 
+        /** @type {Transaction?} - Tx that has undone this one */
+        this.undone = null;
+
         /** @type {Set<function(Transaction): Operation[]>} */
         this.afters = new Set();
 
@@ -102,7 +105,14 @@ export class Transaction {
 
         try {
             if (redoing) {
-                for (const op of this.executed) op.execute();
+                
+                console.log('Redo transaction', this.uuid, 'with', this.executed, 'operations');
+                // console.trace();
+                if (this.undone) this.undone.undo();
+                // for (const op of this.executed) op.execute();
+                // console.log('Refocus with', this.selectionAfter);
+                // if (this.selectionAfter) this.codex?.focus(this.selectionAfter);
+                
             } else {
                 for (const op of this.operations) op.execute(this);
                 for (const after of this.afters) after(this).forEach(op => op.execute(this));
@@ -110,7 +120,7 @@ export class Transaction {
             }
 
             this.executedAt = Date.now();
-            return this.results;
+            return this;
         } catch (error) {
 
             for (let i = this.executed.length - 1; i >= 0; i--) {
@@ -157,11 +167,14 @@ export class Transaction {
         const tx = new Transaction(undoOps, this.codex, this);
         tx.execute().then(() => {
             if (!this.selectionBefore) return;
-            const data = this.codex?.getFocusData(new Focus(this.selectionBefore.start, this.selectionBefore.end));
-            if (data) this.codex?.focus({
-                start: { node: data.startElement, offset: data.startOffset },
-                end: { node: data.endElement, offset: data.endOffset },
-            });
+
+            this.codex?.focus({ start: this.selectionBefore.start, end: this.selectionBefore.end });
+            this.undone = tx;
+            // const data = this.codex?.getFocusData({ start: this.selectionBefore.start, end: this.selectionBefore.end });
+            // if (data) this.codex?.setRange({
+            //     start: { node: data.startElement, offset: data.startOffset },
+            //     end: { node: data.endElement, offset: data.endOffset },
+            // });
         }).catch(console.error);
 
     }
@@ -169,6 +182,9 @@ export class Transaction {
     redo() {
         this.execute(true).catch(console.error);
     }
+
+    /** @param {Focus} f */
+    focus = f => this.codex?.focus(f, {tx: this});
 
     toJSON() {
         return {
@@ -187,7 +203,7 @@ export class Transaction {
 
 /**
  * @template T {object}
- * @typedef {function(T): Promise<any>} Executor
+ * @typedef {function(T): Promise<Transaction>} Executor
  */
 
 /**
@@ -197,8 +213,9 @@ export class Transaction {
  * @returns {Executor<T>}
  */
 export const executor = (block, callback) => (data) => {
+    if (!block?.codex) return Promise.reject(new Error('Block is not attached to a Codex instance'));
     const ops = callback(data);
-    return Promise.resolve(block.codex?.tx(ops).execute());
+    return block.codex.tx(ops).execute();
 }
 
 

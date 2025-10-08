@@ -184,10 +184,14 @@ export class Block {
     length = $derived(0);
 
     /**
-    * @param {import('../values/focus.values').Focus} f
+    * @param {{
+    *   start?: number,
+    *   end?: number,
+    *   offset?: number,
+    * } & Object<string, any>} f
     * @returns {{
     *   startElement: Node,
-    *  startOffset: number,
+    *   startOffset: number,
     *   endElement: Node,
     *   endOffset: number,
     * } | null | undefined}
@@ -445,6 +449,8 @@ export class Block {
 
     destroy = () => this.codex?.tx(this.prepareDestroy()).execute()
 
+
+    debug = $state("");
 
     /** 
      * @param {any} data 

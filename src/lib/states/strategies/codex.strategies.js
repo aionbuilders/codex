@@ -1,10 +1,11 @@
 import { INPUTABLE, MERGEABLE } from "../../utils/capabilities";
-import { Focus } from "../../values/focus.values";
 import { Strategy } from "../strategy.svelte";
 import { until } from "../../utils/utils";
 import { GETDELTA } from "../../utils/operations.utils";
 import { Perf } from "$lib/utils/performance.utils";
 
+
+/** @typedef {import('../../types').Focus} Focus */
 
 /**
  * 
@@ -63,9 +64,8 @@ const replace = (codex, data) => {
 
     if (ops.length) {
 
-        codex.tx(ops).after(() => {
-
-            
+        const tx = codex.tx(ops);
+        tx.after(() => {
             if (endBlock && endBlock.capabilities.has(MERGEABLE) && isThereSelectedBlocksBeforeEnd) {
                 if (startBlock?.capabilities.has(MERGEABLE)) {
                     const ops = startBlock.prepare('merge', endBlock);
@@ -74,15 +74,17 @@ const replace = (codex, data) => {
             }
 
             return [];
-        }).execute().then(results => {
+        }).execute().then(tx => {
+            const { results } = tx;
 
             const hinter = results.map(r => r.operation).filter(op => op.metadata?.[$REFOCUS] && op.metadata?.[GETDELTA]);
             const refocus = startPosition + (hinter.reduce((acc, op) => acc + (op.metadata?.[GETDELTA]?.() || 0), 0));
-            const data = codex.getFocusData(new Focus(refocus, refocus));
-            if (data) codex.focus({
-                start: { node: data.startElement, offset: data.startOffset },
-                end: { node: data.endElement, offset: data.endOffset },
-            });
+            if (data) codex.focus({ start: refocus, end: refocus });
+            // const data = codex.getFocusData({ start: refocus, end: refocus });
+            // if (data) codex.setRange({
+            //     start: { node: data.startElement, offset: data.startOffset },
+            //     end: { node: data.endElement, offset: data.endOffset },
+            // });
 
         })
     }

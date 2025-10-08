@@ -9,20 +9,20 @@ export class CodexSelection extends SvelteSelection {
     }
     
     /** @type {Node?} */
-    start = $derived(this.range?.startContainer || null);
+    startNode = $derived(this.range?.startContainer || null);
     
     /** @type {Node?} */
-    end = $derived(this.range?.endContainer || null);
+    endNode = $derived(this.range?.endContainer || null);
     
     anchoredBlocks = $derived.by(() => {
         this.range;
-        const blocks = this.start && this.codex.recursive.filter(block => {
-            if (!block.element || !this.start) return false;
-            return block.element.contains(this.start);
+        const blocks = this.startNode && this.codex.recursive.filter(block => {
+            if (!block.element || !this.startNode) return false;
+            return block.element.contains(this.startNode);
         }) || [];
         
         if (this.anchorOffset > 0) {
-            const child = this.start?.childNodes?.[this.anchorOffset];
+            const child = this.startNode?.childNodes?.[this.anchorOffset];
             if (!child) return blocks;
             const block = this.codex.recursive.filter(block => (block.element === child) || (block.element?.contains(child))).at(-1);
             if (block && !blocks.includes(block)) {
@@ -39,12 +39,12 @@ export class CodexSelection extends SvelteSelection {
     
     focusedBlocks = $derived.by(() => {
         this.range;
-        const blocks = this.start && this.codex.recursive.filter(block => {
-            if (!block.element || !this.start) return false;
-            return block.element.contains(this.start);
+        const blocks = this.startNode && this.codex.recursive.filter(block => {
+            if (!block.element || !this.startNode) return false;
+            return block.element.contains(this.startNode);
         }) || [];
         if (this.focusOffset > 0) {
-            const child = this.start?.childNodes?.[this.focusOffset];
+            const child = this.startNode?.childNodes?.[this.focusOffset];
             if (!child) return blocks;
             const block = this.codex.recursive.filter(block => (block.element === child) || (block.element?.contains(child))).at(-1);
             if (block && !blocks.includes(block)) {
@@ -63,12 +63,12 @@ export class CodexSelection extends SvelteSelection {
     
     startBlocks = $derived.by(() => {
         this.range;
-        const blocks = this.start && this.codex.recursive.filter(block => {
-            if (!block.element || !this.start) return false;
-            return block.element.contains(this.start);
+        const blocks = this.startNode && this.codex.recursive.filter(block => {
+            if (!block.element || !this.startNode) return false;
+            return block.element.contains(this.startNode);
         }) || [];
         if (this.anchorOffset > 0) {
-            const child = this.start?.childNodes?.[this.anchorOffset];
+            const child = this.startNode?.childNodes?.[this.anchorOffset];
             if (!child) return blocks;
             const block = this.codex.recursive.filter(block => (block.element === child) || (block.element?.contains(child))).at(-1);
             if (block && !blocks.includes(block)) {
@@ -85,12 +85,12 @@ export class CodexSelection extends SvelteSelection {
     
     endBlocks = $derived.by(() => {
         this.range;
-        const blocks = this.end && this.codex.recursive.filter(block => {
-            if (!block.element || !this.end) return false;
-            return block.element.contains(this.end);
+        const blocks = this.endNode && this.codex.recursive.filter(block => {
+            if (!block.element || !this.endNode) return false;
+            return block.element.contains(this.endNode);
         }) || [];
         if (this.focusOffset > 0) {
-            const child = this.end?.childNodes?.[this.focusOffset];
+            const child = this.endNode?.childNodes?.[this.focusOffset];
             if (!child) return blocks;
             const block = this.codex.recursive.filter(block => (block.element === child) ||
             (block.element?.contains(child))).at(-1);
@@ -147,7 +147,18 @@ export class CodexSelection extends SvelteSelection {
         this.addRange(range);
     }
     
-    isInside = $derived(this.codex.element?.contains(this.start));
+    isInside = $derived(this.codex.element?.contains(this.startNode));
+
+
+    start = $derived.by(() => {
+        const startBlock = this.codex.children.find(b => b.selected);
+        return startBlock?.selection && startBlock.start + startBlock.selection.start || 0;
+    });
+
+    end = $derived.by(() => {
+        const endBlock = this.codex.children.findLast(b => b.selected);
+        return endBlock?.selection && endBlock.start + endBlock.selection.end || 0;
+    });
     
 }
 

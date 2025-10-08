@@ -1,7 +1,8 @@
 import { Strategy } from "../../../states/strategy.svelte";
-import { Focus } from "../../../values/focus.values";
 import { Linebreak } from "../linebreak.svelte";
 import { Text } from "../text.svelte";
+
+/** @typedef {import('../../../types').Focus} Focus */
 
 /**
 * @param {import('../paragraph.svelte').Paragraph} paragraph 
@@ -49,9 +50,10 @@ const replace = (paragraph, content) => {
 
     paragraph.log('Replacing content in paragraph:', paragraph.index);
 
-    paragraph.codex?.tx(ops).execute();
+    const tx = paragraph.codex?.tx(ops);
+    tx?.execute();
 
-    return data;
+    return {...data, tx};
 }
 
 /**
@@ -72,9 +74,10 @@ export const paragraphDeleteStrategy = new Strategy(
     (codex, context) => {
         const paragraph = context.block;
         const data = replace(paragraph, context.event.key === 'Enter' ? [{ type: 'linebreak' }] : []);
-
-        if (context.event.key === 'Enter') paragraph.focus(new Focus(data.startOffset + 1, data.startOffset + 1));
-        else paragraph.focus(new Focus(data.startOffset, data.startOffset));
+        if (data && data.tx) {
+            if (context.event.key === 'Enter') data.tx.focus({ start: data.startOffset + 1, end: data.startOffset + 1, block: paragraph });
+            else data.tx.focus({ start: data.startOffset, end: data.startOffset, block: paragraph });
+        }
     }
 ).tag('paragraph').tag('keydown').tag('delete').tag('backspace').tag('enter');
 
@@ -130,7 +133,7 @@ export const paragraphBeforeInputStrategy = new Strategy(
                     }
                 }])
                 block.log('focus at:', selection.start + event.data.length);
-                block.focus(new Focus(selection.start + event.data.length, selection.start + event.data.length));
+                if (data?.tx) data.tx.focus({ start: (selection?.start || 0) + event.data.length, end: (selection?.start || 0) + event.data.length, block });
             }
         }
     }

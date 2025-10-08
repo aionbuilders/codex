@@ -14,7 +14,6 @@ import { CodexSelection } from './selection.svelte';
 import { codexStrategies } from './strategies/codex.strategies';
 import { Transaction } from '../utils/operations.utils';
 import { History } from './history.svelte';
-import { Focus } from '../values/focus.values';
 import { browser } from '$app/environment';
 import { untrack } from 'svelte';
 import { PlainPreset } from '../presets';
@@ -97,7 +96,7 @@ export class Codex extends MegaBlock {
     }
 
     get systems() {
-        return [...(this.preset?.systems.filter(s => !this.omited.systems.includes(s.manifest.type) && !(this.init.systems || []).find(s2 => s2.manifest.type === s.manifest.type)) || []).map(S => new S()), ...(this.init?.systems || [])];
+        return [...(this.preset?.systems.filter(s => !this.omited.systems.includes(s.manifest.name) && !(this.init.systems || []).find(s2 => s2.manifest.name === s.manifest.name)) || []).map(S => new S()), ...(this.init?.systems || [])];
     }
 
     /** @type {HTMLDivElement?} */
@@ -151,6 +150,7 @@ export class Codex extends MegaBlock {
                 if (eventType === 'beforeinput' && currentParent === this) e.preventDefault();
                 
                 while (currentParent) {
+                    if (!(currentParent instanceof MegaBlock)) break;
                     const strategy = currentParent.strategies?.filter(s => s.tags.includes(strategyTag)).find(s => s.canHandle(this, context));
                     if (strategy) {
                         e.preventDefault();
@@ -162,6 +162,7 @@ export class Codex extends MegaBlock {
                 }
 
             } else if (currentParent) {
+                // @ts-ignore
                 const handlers = this.selection?.anchoredBlocks.map(block => block[eventType]).filter(handler => typeof handler === 'function');
                 if (handlers.length === 0) return;
                 
@@ -232,19 +233,38 @@ export class Codex extends MegaBlock {
 
     /**
      * @param {{
-     *  start: { node: Node, offset: number },
-     *  end?: { node: Node, offset: number }
+     *  start?: number,
+     *  end?: number,
+     *  offset?: number,
+     *  block?: import('./block.svelte').Block|string
      * }} focus
+     * @param {{tx?: Transaction|boolean}} options
      */
-    focus = (focus) => {
-        const timecode = performance.now();
+    focus = (focus, options = {}) => {
+        
+        const {start = focus.offset || 0, end = focus.offset || focus.start || 0} = focus;
 
-        requestAnimationFrame(() => {
-            this.selection.setRange(focus.start.node, focus.start.offset, focus.end?.node || focus.start.node, focus.end?.offset || focus.start.offset);
-        })
+        const blockId = typeof focus.block === 'string' ? focus.block : focus.block?.id;
+
+        if (options.tx) {
+            const tx = options.tx instanceof Transaction ? options.tx : this.history.current || this.history.transactions[this.history.index] || null;
+            if (!tx) throw new Error("No transaction available for focus operation");
+            tx.selectionAfter = {...focus, start, end, ...(focus.block ? { block: blockId } : {})};
+        }
+
+        const block = typeof focus.block === 'string' ? this.recursive.find(b => b.id === focus.block) : focus.block || this;
+        if (!block) throw new Error("Block not found for focus operation");
+        const data = block.getFocusData({ start, end });
+        if (data) this.setRange({
+            start: {node: data.startElement, offset: data.startOffset},
+            end: {node: data.endElement, offset: data.endOffset}
+        });
+        
     };
 
-    /** @param {Focus} f */
+    /**
+     * @param {{start: number, end: number}} f
+     */
     getFocusData(f) {
         const {start, end} = f;
 
@@ -252,8 +272,14 @@ export class Codex extends MegaBlock {
         const endNode = start === end ? startNode : this.children.find(b => b.start <= end && b.end >= end);
 
         if (startNode && endNode) {
-            const startFocus = startNode.getFocusData(new Focus(start - startNode.start, startNode === endNode ? end - startNode.start : startNode.length));
-            const endFocus = startNode === endNode ? startFocus : endNode.getFocusData(new Focus(0, end - endNode.start));
+            const startFocus = startNode.getFocusData({
+                start: start - startNode.start,
+                end: startNode === endNode ? end - startNode.start : startNode.length
+            })
+            const endFocus = startNode === endNode ? startFocus : endNode.getFocusData({
+                start: 0,
+                end: end - endNode.start
+            });
             if (!startFocus) throw new Error("Start focus data not found");
             if (!endFocus) throw new Error("End focus data not found");
             return { startElement: startFocus.startElement, startOffset: startFocus.startOffset, endElement: endFocus.endElement, endOffset: endFocus.endOffset };
@@ -266,7 +292,7 @@ export class Codex extends MegaBlock {
      *  end?: { node: Node, offset: number }
      * }} focus
      */
-    setRange = focus => this.selection.setRange(focus.start.node, focus.start.offset, focus.end?.node || focus.start.node, focus.end?.offset || focus.start.offset);
+    setRange = focus => requestAnimationFrame(() => this.selection.setRange(focus.start.node, focus.start.offset, focus.end?.node || focus.start.node, focus.end?.offset || focus.start.offset));
 
     getSelection = () => {
         const startBlock = this.children.find(b => b.selected);
