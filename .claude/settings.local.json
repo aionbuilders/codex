@@ -3,7 +3,9 @@
     "allow": [
       "mcp__ide__getDiagnostics",
       "Bash(jj diff:*)",
-      "Bash(jj describe:*)"
+      "Bash(jj describe:*)",
+      "Bash(jj status:*)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []
