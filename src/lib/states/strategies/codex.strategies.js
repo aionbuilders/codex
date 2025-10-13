@@ -157,7 +157,7 @@ export const UndoRedoStrategy = new Strategy(
 export const codexStrategies = [
     multiBlockBackspaceStrategy,
     beforeInputStrategy,
-    UndoRedoStrategy
+    UndoRedoStrategy,
 ];
 
 

@@ -5,6 +5,7 @@
 * @property {Array<typeof import('./block.svelte').Block>} [blocks] - Initial blocks to be added to the codex.
 * @property {import('./strategy.svelte').Strategy[]} [strategies] - Initial strategies to be added to the codex.
 * @property {import('./system.svelte').System[]} [systems] - Initial systems to be added to the codex.
+* @property {Record<string, any>} [config] - Configuration options for the codex and its preset.
 * @property {string[]} [omit] - List of block, strategies, systems to omit from the codex.
 */
 
@@ -96,12 +97,29 @@ export class Codex extends MegaBlock {
         return [...(this.preset?.blocks.filter(b => !this.omited.blocks.includes(b.manifest.type) && !(this.init.blocks || []).find(b2 => b2.manifest.type === b.manifest.type)) || []), ...(this.init?.blocks || [])];
     }
 
+    // Dans codex.svelte.js
     get strategies() {
-        return this.init.strategies || super.strategies;
+        return [
+            // Strategies du preset (filtrées par omit)
+            ...(this.preset?.strategies?.filter(s => 
+                !this.omited.strategies.includes(s.name)
+            ) || []),
+            // Strategies de l'init
+            ...(this.init?.strategies || []),
+            // Strategies du manifest (base)
+            ...(super.strategies || [])
+        ];
     }
 
     get systems() {
         return [...(this.preset?.systems.filter(s => !this.omited.systems.includes(s.manifest.name) && !(this.init.systems || []).find(s2 => s2.manifest.name === s.manifest.name)) || []).map(S => new S()), ...(this.init?.systems || [])];
+    }
+
+    get config() {
+        return {
+            ...(this.preset?.config || {}),
+            ...(this.init?.config || {})
+        };
     }
 
     /** @type {HTMLDivElement?} */

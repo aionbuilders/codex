@@ -3,6 +3,7 @@
  *  name?: string,
  *  blocks?: Array<typeof import('../states/block.svelte').Block>,
  *  systems?: Array<typeof import('../states/system.svelte').System>,
+ *  strategies?: Array<import('../states/strategy.svelte').Strategy>,
  *  extends?: Preset,
  *  config?: Record<string, any>,
  * }} PresetInit
@@ -45,6 +46,28 @@ export class Preset {
         return Array.from(systems);
     }
 
+    /** @returns {Array< import('../states/strategy.svelte').Strategy>} */
+    get strategies() {
+        const strategies = new Set(this.init.strategies || []);
+
+        if (this.init.extends) {
+            for (const strategy of this.init.extends.strategies) {
+                strategies.add(strategy);
+            }
+        }
+
+        return Array.from(strategies);
+    }
+
+    /** @returns {Record<string, any>} */
+    get config() {
+        return {
+            ...(this.init.extends ? this.init.extends.config : {}),
+            ...(this.init.config || {})
+        };
+    }
+    
+    /** @returns {Preset|undefined} */
     get extends() {
         return this.init.extends;
     }

@@ -12,7 +12,7 @@
     ])
     console.log({data});
     
-    const codex = new Codex({in: data});
+    const codex = new Codex({in: data, config: {styles: true}});
     const Editor = codex.component;
 </script>
 

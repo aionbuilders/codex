@@ -54,17 +54,6 @@ export class Paragraph extends MegaBlock {
     constructor(codex, init = {}) {
         super(codex, init);
 
-        // if (init.children?.length) {
-        //     this.children = init.children.map((b) => {
-        //         const { type, init = {} } = b;
-
-        //         const B = this.blocks.find(B => B.manifest.type === type);
-        //         if (!B) throw new Error(`Block type "${type}" not found in paragraph.`);
-        //         return new B(this.codex, {...b, ...init});
-        //     }).filter(b => b instanceof Linebreak || b instanceof Text);
-        //     this.log('Initialized paragraph with children:', this.children);
-        // }
-
         this.preparator('merge', this.prepareMerge.bind(this));
         this.preparator('split', this.prepareSplit.bind(this));
         this.preparator('transform', this.prepareTransform.bind(this));
@@ -84,8 +73,8 @@ export class Paragraph extends MegaBlock {
             
             $effect(() => {
                 if (this.element && this.children) {
-                    const styles = this.children.map(child => child instanceof Text ? child.style : null).filter(style => style);
-                    if (styles) this.normalize();
+                    const signatures = this.children.map(child => child instanceof Text ? child.signature : null);
+                    if (signatures) this.normalize();
                 }
             })
 
@@ -101,9 +90,6 @@ export class Paragraph extends MegaBlock {
             })
 
         });
-
-        
-
 
         
     }
@@ -767,7 +753,7 @@ function findConsecutiveTextGroupsByStyle(elements) {
         
         // Si c'est un Text
         if (element instanceof Text) {
-            const elementStyle = element.style;
+            const elementStyle = element.signature;
             
             // Si c'est le premier Text ou si le style est différent du précédent
             if (currentStyle === null || elementStyle !== currentStyle) {

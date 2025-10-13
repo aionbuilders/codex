@@ -3,67 +3,8 @@ import { Operation } from "../../../utils/operations.utils";
 
 /**
  * @typedef {import('..').Text} TextBlock
+ * @typedef {import('../../codex.svelte').Codex} CodexBlock
  */
-
-/**
- * @typedef {Object} TextInsertOperationData
- * @property {string} text - The insert text.
- * @property {number} offset - The offset where the text is inserted.
- */
-
-/** @extends {Operation<TextBlock, TextInsertOperationData>} */
-export class TextInsertOperation extends Operation {
-    /**
-     * @param {TextBlock} block
-     * @param {TextInsertOperationData} data
-     */
-    constructor(block, data) {
-        super(block, 'insert', data);
-        this.text = data.text;
-        this.offset = data.offset;
-    }
-
-    get debug() {
-        return `Insert "${this.text}" at ${this.offset}`;
-    }
-
-    undo() {
-        return [new TextDeleteOperation(this.block, { from: this.offset, to: this.offset + this.text.length })];
-    }
-}
-
-
-/**
- * @typedef {Object} TextDeleteOperationData
- * @property {number} from - The starting offset of the deleted text.
- * @property {number} to - The ending offset of the deleted text.
- */
-
-/** @extends {Operation<TextBlock, TextDeleteOperationData>} */
-export class TextDeleteOperation extends Operation {
-    /**
-     * @param {TextBlock} block
-     * @param {TextDeleteOperationData} data
-     */
-    constructor(block, data) {
-        super(block, 'delete', data);
-        this.from = data.from;
-        this.to = data.to;
-
-        if (this.from > this.to) throw new Error('Invalid delete operation: from is greater than to');
-        this.text = block.text.slice(this.from, this.to);
-
-    }
-    
-    get debug() {
-        return `Delete from ${this.from} to ${this.to}`;
-    }
-
-    undo() {
-        return [new TextInsertOperation(this.block, { text: this.text, offset: this.from })];
-    }
-}
-
 
 
 /**
@@ -72,7 +13,6 @@ export class TextDeleteOperation extends Operation {
  * @property {number} from - The starting offset of the edited text.
  * @property {number} [to] - The ending offset of the edited text.
  */
-
 
 /**
  * @extends {Operation<TextBlock, TextEditionData>}
@@ -119,5 +59,26 @@ export class TextEdition extends Operation {
         } else {
             return [new TextEdition(this.block, { text: this.deleted, from: this.data.from, to: this.data.from + this.inserted.length })];
         }
+    }
+}
+
+
+/**
+ * @typedef {Object} TextStylingData
+ * @property {keyof TextBlock['styles'][]} [enable] - The style to enable.
+ * @property {keyof TextBlock['styles'][]} [disable] - The style to disable.
+ * @property {string[]} [ids] - The IDs of the text blocks to apply the style to.
+ */
+
+/**
+ * @extends {Operation<TextBlock|CodexBlock, TextStylingData>}
+ */
+export class TextStyling extends Operation {
+    /**
+     * @param {TextBlock|CodexBlock} block
+     * @param {TextStylingData} data
+     */
+    constructor(block, data) {
+        super(block, 'style', data);
     }
 }

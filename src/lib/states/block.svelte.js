@@ -1,35 +1,37 @@
-/** 
-* @typedef {Object} BlockOperation
-* @property {string} type - The type of operation (e.g., "insert", "delete", "replace").
-* @property {string[]} params - Parameters for the operation, such as coordinates or block IDs.
-* @property {string} handler - The name of the handler function to execute for this operation.
-*/
-import { applier, preparer } from '../utils/operations.utils';
-import { BlocksInsertion, BlocksRemoval, BlocksReplacement } from './blocks/operations/block.ops';
-import { Codex } from './codex.svelte';
-import { Perf } from '$lib/utils/performance.utils';
-import { untrack } from 'svelte';
-
+/**
+ * @typedef {Object} BlockOperation
+ * @property {string} type - The type of operation (e.g., "insert", "delete", "replace").
+ * @property {string[]} params - Parameters for the operation, such as coordinates or block IDs.
+ * @property {string} handler - The name of the handler function to execute for this operation.
+ */
+import { applier, preparer } from "../utils/operations.utils";
+import {
+    BlocksInsertion,
+    BlocksRemoval,
+    BlocksReplacement,
+} from "./blocks/operations/block.ops";
+import { Codex } from "./codex.svelte";
+import { untrack } from "svelte";
 /**
  * @typedef {new (...args: any[]) => Block} BlockConstructor
  */
 
 /**
-* @typedef {Object} BlockManifest
-* @property {string} type - The type of block (e.g., "paragraph", "text", "linebreak").
-* @property {Object<string, BlockOperation>} [operations] - A map of operation types to their handlers.
-* @property {(import('./capability.svelte').Capability|symbol)[]} [capabilities] - The capabilities of the block.
-* @property {import('svelte').Component?} [component] - The Svelte component associated with the block.
-* @property {string[]} [dataTypes] - The data types supported by the block (e.g., "text/plain", "text/html").
-*/
+ * @typedef {Object} BlockManifest
+ * @property {string} type - The type of block (e.g., "paragraph", "text", "linebreak").
+ * @property {Object<string, BlockOperation>} [operations] - A map of operation types to their handlers.
+ * @property {(import('./capability.svelte').Capability|symbol)[]} [capabilities] - The capabilities of the block.
+ * @property {import('svelte').Component?} [component] - The Svelte component associated with the block.
+ * @property {string[]} [dataTypes] - The data types supported by the block (e.g., "text/plain", "text/html").
+ */
 
 /**
-* @typedef {BlockManifest & {
-*   blocks: Array<BlockConstructor>;
-*   strategies?: import('./strategy.svelte').Strategy[];
-*   systems?: import('./system.svelte').System[];
-* }} MegaBlockManifest
-*/
+ * @typedef {BlockManifest & {
+ *   blocks: Array<BlockConstructor>;
+ *   strategies?: import('./strategy.svelte').Strategy[];
+ *   systems?: import('./system.svelte').System[];
+ * }} MegaBlockManifest
+ */
 
 /**
  * @typedef {Object} BlockObject
@@ -53,23 +55,24 @@ import { untrack } from 'svelte';
  * @property {InData} [in] - Initial values for the block.
  */
 
+/** @typedef {{
+ *  children: BlockInit[]
+ * } & BlockInit } MegaBlockInit */
+
 /**
  * @typedef {Object} BlockData
  * @property {string} type - The type of the block.
  * @property {BlockInit & Object<string, any>} [init] - The initialization data for the block.
  */
 
-
-
-
 export class Block {
     /** @type {BlockManifest} */
     static manifest = {
-        type: 'block',
+        type: "block",
         operations: {},
         capabilities: [],
-        dataTypes: []
-    }
+        dataTypes: [],
+    };
 
     /** @param {import('./codex.svelte').Codex?} codex @param {BlockInit} init */
     constructor(codex, init = {}) {
@@ -96,13 +99,13 @@ export class Block {
          */
         this.executors = new Map();
 
-        /** 
+        /**
          * A set of exporters available on the block.
          * @type {Map<string, Function>}
          */
         this.exporters = new Map();
 
-        this.method('delete', () => this.rm());
+        this.method("delete", () => this.rm());
 
         this.uuid = crypto.randomUUID();
     }
@@ -124,21 +127,20 @@ export class Block {
     }
 
     /** @type {import('svelte').Component?} */
-    component = $derived(this.codex?.components[this.type] || this.manifest.component || null);
+    component = $derived(
+        this.codex?.components[this.type] || this.manifest.component || null,
+    );
 
     unlink = $derived(this.codex?.recursive.includes(this) === false);
-    
+
     /** @type {Number} */
     i = $state(-1);
 
-
-
     /** @type {Number} */
     index = $state(-1);
-    
+
     /** @type {MegaBlock?} */
     #parent = $state(null);
-
 
     get parent() {
         return this.#parent;
@@ -146,40 +148,52 @@ export class Block {
 
     /** @param {MegaBlock?} value */
     set parent(value) {
-        if (this.#parent?.children.includes(this) && value !== this.#parent) throw new Error('Cannot reassign parent: already a child of the current parent. Remove from current parent first.');
+        if (this.#parent?.children.includes(this) && value !== this.#parent)
+            throw new Error(
+                "Cannot reassign parent: already a child of the current parent. Remove from current parent first.",
+            );
         this.#parent = value;
     }
 
     /** @type {MegaBlock[]} */
-    parents = $derived(this.parent ? [...this.parent.parents, this.parent] : []);
-    
+    parents = $derived(
+        this.parent ? [...this.parent.parents, this.parent] : [],
+    );
+
     /** @type {Block?} */
-    before = $state(null)
-    
+    before = $state(null);
+
     /** @type {Block?} */
     after = $state(null);
 
     /** @type {Boolean} */
     first = $derived(this.parent?.children[0] === this);
-    
+
     /** @type {Boolean} */
-    last = $derived(this.parent?.children[this.parent.children.length - 1] === this);
+    last = $derived(
+        this.parent?.children[this.parent.children.length - 1] === this,
+    );
 
     /** @type {HTMLElement?} */
     element = $state(null);
-    
+
     selected = $derived.by(() => {
         if (!this.codex?.selection.isInside) return false;
         this.codex?.selection?.range;
-        return untrack(() => this.element ? this.codex?.selection?.range?.intersectsNode(this.element) : false);
+        return untrack(() =>
+            this.element
+                ? this.codex?.selection?.range?.intersectsNode(this.element)
+                : false,
+        );
     });
-    
+
     /** @type {Number} */
     depth = $derived(this.parent ? this.parent.depth + 1 : 0);
-    
+
     /** @type {Number[]} */
     path = $derived.by(() => {
-        if (this.parent && this.parent instanceof MegaBlock) return [...this.parent.path, this.index];
+        if (this.parent && this.parent instanceof MegaBlock)
+            return [...this.parent.path, this.index];
         else return [];
     });
 
@@ -195,39 +209,38 @@ export class Block {
     length = $derived(0);
 
     /**
-    * @param {{
-    *   start?: number,
-    *   end?: number,
-    *   offset?: number,
-    * } & Object<string, any>} f
-    * @returns {{
-    *   startElement: Node,
-    *   startOffset: number,
-    *   endElement: Node,
-    *   endOffset: number,
-    * } | null | undefined}
-    */
+     * @param {{
+     *   start?: number,
+     *   end?: number,
+     *   offset?: number,
+     * } & Object<string, any>} f
+     * @returns {{
+     *   startElement: Node,
+     *   startOffset: number,
+     *   endElement: Node,
+     *   endOffset: number,
+     * } | null | undefined}
+     */
     getFocusData(f) {
+        f;
         return null;
     }
 
-
-
     /** @param {import('./capability.svelte').Capability} capability */
-    can = capability => this.capabilities.has(capability)
+    can = (capability) => this.capabilities.has(capability);
 
     /**
      * Removes the block from its parent.
      */
     rm = () => {
         if (this.parent) {
-            this.parent.children = this.parent.children.filter(child => child !== this); 
+            this.parent.children = this.parent.children.filter(
+                (child) => child !== this,
+            );
             return true;
         }
         return false;
-    }
-
-
+    };
 
     /** @param {String} format @param {Function} callback */
     exporter = (format, callback) => this.exporters.set(format, callback);
@@ -235,17 +248,18 @@ export class Block {
     /** @param {String} format @param  {...any} args */
     export = (format, ...args) => {
         const exporter = this.exporters.get(format);
-        if (!exporter) throw new Error(`No exporter found for "${format}" in block "${this.type}".`);
+        if (!exporter)
+            throw new Error(
+                `No exporter found for "${format}" in block "${this.type}".`,
+            );
         return exporter(...args);
-    }
-
-
+    };
 
     /** @param {Node} node */
     getNodePath(node) {
         const path = [];
         let current = node;
-        
+
         while (current && current !== this.element) {
             const parent = current.parentNode;
             if (!parent) break;
@@ -253,21 +267,21 @@ export class Block {
             path.unshift(index);
             current = parent;
         }
-        
+
         return path;
     }
-    
+
     /** @param {Number[]} path */
     getNodeFromPath(path) {
         /** @type {Node} */
         if (this.element) {
             let current = this.element;
-        
+
             for (const index of path) {
                 if (!current || !current.childNodes[index]) return null;
                 current = current.childNodes[index];
             }
-            
+
             return current;
         } else return null;
     }
@@ -279,60 +293,67 @@ export class Block {
      */
     getRelativePosition(hint) {
         // Par défaut, on ne supporte que 'before' ou 'after'
-        if (hint === 'start' || hint === 'before') return 'before';
-        if (hint === 'end' || hint === 'after') return 'after';
-        
+        if (hint === "start" || hint === "before") return "before";
+        if (hint === "end" || hint === "after") return "after";
+
         // Si le bloc a une sélection active, la capturer
         if (this.selected && window.getSelection) {
             const sel = window.getSelection();
+            if (!sel) return;
             const range = sel.getRangeAt(0);
             const startInMe = this.element?.contains(range.startContainer);
             const endInMe = this.element?.contains(range.endContainer);
-            
+
             // Si la sélection est dans mon element
             if (this.element?.contains(range.startContainer)) {
                 return {
-                    type: 'selection',
-                    ...(startInMe ? {
-                        startPath: this.getNodePath(range.startContainer),
-                        startOffset: range.startOffset
-                    } : {startPath: null, startOffset: 0}),
-                    ...(endInMe ? {
-                        endPath: this.getNodePath(range.endContainer),
-                        endOffset: range.endOffset
-                    } : {endPath: null, endOffset: 0})
+                    type: "selection",
+                    ...(startInMe
+                        ? {
+                              startPath: this.getNodePath(range.startContainer),
+                              startOffset: range.startOffset,
+                          }
+                        : { startPath: null, startOffset: 0 }),
+                    ...(endInMe
+                        ? {
+                              endPath: this.getNodePath(range.endContainer),
+                              endOffset: range.endOffset,
+                          }
+                        : { endPath: null, endOffset: 0 }),
                 };
             }
         }
-        
-        return 'before'; // Fallback
-    }
 
+        return "before"; // Fallback
+    }
 
     /** @type {Object<string, any>} */
     values = $state({});
 
     /** @type {Object<string, any>} */
     metadata = $state({});
-    
+
     /** @param {String} operation */
-    supports = operation => this.manifest?.operations && operation in this.manifest.operations || false;
-    
+    supports = (operation) =>
+        (this.manifest?.operations && operation in this.manifest.operations) ||
+        false;
+
     /**
-     * @param {String} name 
-     * @param {Event} e 
-     * @param {*} data 
+     * @param {String} name
+     * @param {Event} e
+     * @param {*} data
      */
     ascend = (name, e, data) => {
         if (this.parents.length) {
-            const callableParent = this.parents.find(parent => typeof parent[name] === 'function');
+            const callableParent = this.parents.find(
+                (parent) => typeof parent[name] === "function",
+            );
             if (callableParent) {
                 e.preventDefault();
                 callableParent[name](e, data);
             }
         }
-    }
-
+    };
 
     /**
      * Adds an executor to the block.
@@ -344,9 +365,12 @@ export class Block {
     /** @param {String} operation @param {...any} args */
     execute = (operation, ...args) => {
         const executor = this.executors.get(operation);
-        if (!executor) throw new Error(`No executor found for "${operation}" in block "${this.type}".`);
+        if (!executor)
+            throw new Error(
+                `No executor found for "${operation}" in block "${this.type}".`,
+            );
         return executor(...args);
-    }
+    };
 
     /**
      * Adds a method to the block.
@@ -361,12 +385,14 @@ export class Block {
      * @param {...any} args
      * @returns {any}
      */
-    call = (name, ...args) => {
+    call = (name, ...args) => { 
         const method = this.methods.get(name);
-        if (!method) throw new Error(`Method "${name}" not found in block "${this.type}".`);
+        if (!method)
+            throw new Error(
+                `Method "${name}" not found in block "${this.type}".`,
+            );
         return method(...args);
-    }
-
+    };
 
     /**
      * Adds a preparator to the block.
@@ -384,15 +410,17 @@ export class Block {
      */
     prepare = (name, data, metadata) => {
         const preparator = this.preparators.get(name);
-        if (!preparator) throw new Error(`No preparator found for "${name}" in block "${this.type}".`);
+        if (!preparator)
+            throw new Error(
+                `No preparator found for "${name}" in block "${this.type}".`,
+            );
         const preparation = preparator(data);
         if (!preparation) return [];
-        return preparation.map(o => {
-            o.metadata = {...o.metadata, ...metadata};
+        return preparation.map((o) => {
+            o.metadata = { ...o.metadata, ...metadata };
             return o;
         });
-    }
-
+    };
 
     /**
      * Adds a triple to the block.
@@ -405,32 +433,31 @@ export class Block {
         this.preparator(name, preparator);
         this.executor(name, executor);
         this.method(name, method);
-    }
+    };
 
     /**
      * Logs a message to the console if debugging is enabled.
-     * @param  {...any} args 
+     * @param  {...any} args
      */
     log = (...args) => {
-        const prefix = `${this.type}${this.index < 0 ? '-⌀' : `-${this.index}`}`.toUpperCase();
+        const prefix =
+            `${this.type}${this.index < 0 ? "-⌀" : `-${this.index}`}`.toUpperCase();
         console.log(prefix, ...args);
         // console.trace();
-   
-    }
-
+    };
 
     data() {
         return {
             id: this.id,
             type: this.type,
-            metadata: this.metadata
+            metadata: this.metadata,
         };
     }
 
     toJSON() {
         return {
             id: this.id,
-            type: this.type
+            type: this.type,
         };
     }
 
@@ -443,7 +470,7 @@ export class Block {
     toInit() {
         return {
             type: this.type,
-        }
+        };
     }
 
     /** @type {BlockManifest} */
@@ -451,35 +478,35 @@ export class Block {
         return this.constructor.manifest;
     }
 
-
     /** @returns {import('../utils/operations.utils').Operation[]} */
     prepareDestroy = () => {
-        const ops = this.parent ? this.parent.prepareRemove({ ids: [this.id] }) : [];
+        const ops = this.parent
+            ? this.parent.prepareRemove({ ids: [this.id] })
+            : [];
         return ops;
-    }
+    };
 
-    destroy = () => this.codex?.tx(this.prepareDestroy()).execute()
-
+    destroy = () => this.codex?.tx(this.prepareDestroy()).execute();
 
     debug = $state("");
 
-    /** 
-     * @param {any} data 
+    /**
+     * @param {any} data
      */
     $in(data) {
-        console.warn('Block input handler not implemented:', data);
+        console.warn("Block input handler not implemented:", data);
     }
 
-    /** 
-     * @param {Object} data 
-    */
+    /**
+     * @param {Object} data
+     */
     snapshot(data) {
         return {
             id: this.id,
             type: this.type,
             metadata: this.metadata,
-            ...data
-        }
+            ...data,
+        };
     }
 
     /**
@@ -491,9 +518,9 @@ export class Block {
     static data(rest = {}) {
         return {
             type: this.manifest.type,
-            ...rest
-        }
-    } 
+            ...rest,
+        };
+    }
 }
 
 /**
@@ -502,31 +529,54 @@ export class Block {
 export class MegaBlock extends Block {
     /** @type {MegaBlockManifest} */
     static manifest = {
-        type: 'mega-block',
+        type: "mega-block",
         operations: {},
         capabilities: [],
-        blocks: []
+        blocks: [],
     };
 
-    /** @param {import('./codex.svelte').Codex?} codex @param {BlockInit} init*/
+    /** @param {import('./codex.svelte').Codex?} codex @param {MegaBlockInit} init*/
     constructor(codex, init = {}) {
         super(codex, init);
 
         if (init?.children) {
-            console.log('Initializing mega block with children:', init.children);
-            this.children = init.children.map(child => {
-                const B = this.blocks.find(B => B.manifest.type === child.type);
+            console.log(
+                "Initializing mega block with children:",
+                init.children,
+            );
+            this.children = init.children.map((child) => {
+                const B = this.blocks.find(
+                    (B) => B.manifest.type === child.type,
+                );
                 if (!B) throw new Error(`Unknown block type: ${child.type}`);
-                const b = new B(this.codex, { ...child, ...(child.init || {}) });
+                const b = new B(this.codex, {
+                    ...child,
+                    ...(child.init || {}),
+                });
                 this.codex?.registry.set(b.id, b);
-                console.log('Registered block:', b);
+                console.log("Registered block:", b);
                 return b;
-            })
+            });
         }
 
-        this.trine('insert', this.prepareInsert.bind(this), this.insert, this.applyInsert);
-        this.trine('remove', this.prepareRemove.bind(this), this.remove, this.applyRemove);
-        this.trine('replace', this.prepareReplace.bind(this), this.replace, this.applyReplace);
+        this.trine(
+            "insert",
+            this.prepareInsert.bind(this),
+            this.insert,
+            this.applyInsert,
+        );
+        this.trine(
+            "remove",
+            this.prepareRemove.bind(this),
+            this.remove,
+            this.applyRemove,
+        );
+        this.trine(
+            "replace",
+            this.prepareReplace.bind(this),
+            this.replace,
+            this.applyReplace,
+        );
 
         $effect.root(() => {
             $effect(() => {
@@ -536,8 +586,8 @@ export class MegaBlock extends Block {
                     child.after = this.children[i + 1] || null;
                     child.i = i;
                 });
-            })
-        })
+            });
+        });
     }
 
     /** @type {MegaBlockManifest} */
@@ -561,68 +611,80 @@ export class MegaBlock extends Block {
 
     get dataTypes() {
         const types = new Set(this.manifest.dataTypes);
-        this.blocks.forEach(B => {
-            if (B.manifest.dataTypes) B.manifest.dataTypes.forEach(t => types.add(t));
+        this.blocks.forEach((B) => {
+            if (B.manifest.dataTypes)
+                B.manifest.dataTypes.forEach((t) => types.add(t));
         });
         return types;
     }
 
     /** @type {T[]} */
     children = $state([]);
-    
+
     /** @type {Block[]} */
     recursive = $derived.by(() => {
-        return this.children.flatMap(child => {
+        return this.children.flatMap((child) => {
             if (child instanceof MegaBlock) return [child, ...child.recursive];
             else return [child];
         });
     });
 
-    endpoints = $derived(this.recursive.filter(block => !(block instanceof MegaBlock)));
-    
-    /** @param {Block} block */
-    contains = block => this.recursive.includes(block);
+    endpoints = $derived(
+        this.recursive.filter((block) => !(block instanceof MegaBlock)),
+    );
 
+    /** @param {Block} block */
+    contains = (block) => this.recursive.includes(block);
 
     // PREPARATORS
 
-    
-    prepareInsert = preparer(/** @param {import('./blocks/operations/block.ops').BlocksInsertionData & { block?: BlockData }} data */ data => {
-        let {offset} = data;
+    prepareInsert = preparer(
+        /** @param {import('./blocks/operations/block.ops').BlocksInsertionData & { block?: BlockData }} data */ (
+            data,
+        ) => {
+            let { offset } = data;
 
-        offset ??= this.children.length;
-        if (offset < 0) offset = this.children.length + offset + 1;
-        if (offset < 0) offset = 0;
-        if (offset > this.children.length) offset = this.children.length;
+            offset ??= this.children.length;
+            if (offset < 0) offset = this.children.length + offset + 1;
+            if (offset < 0) offset = 0;
+            if (offset > this.children.length) offset = this.children.length;
 
-        if (data.block && data.blocks) throw new Error('Cannot insert both "block" and "blocks" at the same time.');
-        if (data.block) data.blocks = [data.block];
-        if (!data.blocks || !data.blocks.length) throw new Error('No blocks to insert.');
+            if (data.block && data.blocks)
+                throw new Error(
+                    'Cannot insert both "block" and "blocks" at the same time.',
+                );
+            if (data.block) data.blocks = [data.block];
+            if (!data.blocks || !data.blocks.length)
+                throw new Error("No blocks to insert.");
 
-        return [
-            new BlocksInsertion(this, {
-                offset,
-                blocks: data.blocks
-            })
-        ]
-    })
-
+            return [
+                new BlocksInsertion(this, {
+                    offset,
+                    blocks: data.blocks,
+                }),
+            ];
+        },
+    );
 
     /**
-     * 
-     * @param {import('./blocks/operations/block.ops').BlocksRemovalData & { id?: string }} data 
+     *
+     * @param {import('./blocks/operations/block.ops').BlocksRemovalData & { id?: string }} data
      */
     prepareRemove(data) {
         let { id, ids } = data;
 
-        if (id && ids) throw new Error('Cannot sdow brier provide both "id" and "ids" to remove blocks.');
+        if (id && ids)
+            throw new Error(
+                'Cannot sdow brier provide both "id" and "ids" to remove blocks.',
+            );
         if (id) ids = [id];
-        if (!ids || !ids.length) throw new Error('No ids provided to remove blocks.');
+        if (!ids || !ids.length)
+            throw new Error("No ids provided to remove blocks.");
 
         return [
             new BlocksRemoval(this, {
-                ids
-            })
+                ids,
+            }),
         ];
     }
 
@@ -632,8 +694,8 @@ export class MegaBlock extends Block {
      * block: BlockData
      * }} data
      */
-    prepareReplace = data => {
-        let {from, to} = data;
+    prepareReplace = (data) => {
+        let { from, to } = data;
 
         if (from < 0) from = this.children.length + from + 1;
         if (from < 0) from = 0;
@@ -641,19 +703,22 @@ export class MegaBlock extends Block {
         if (to < 0) to = this.children.length + to + 1;
         if (to < from) to = from;
 
-        if (data.block && data.blocks) throw new Error('Cannot insert both "block" and "blocks" at the same time.');
+        if (data.block && data.blocks)
+            throw new Error(
+                'Cannot insert both "block" and "blocks" at the same time.',
+            );
         if (data.block) data.blocks = [data.block];
-        if (!data.blocks || !data.blocks.length) throw new Error('No blocks to insert.');
+        if (!data.blocks || !data.blocks.length)
+            throw new Error("No blocks to insert.");
 
         return [
             new BlocksReplacement(this, {
                 from,
                 to,
-                blocks: data.blocks
-            })
+                blocks: data.blocks,
+            }),
         ];
-    }
-
+    };
 
     // EXECUTORS
 
@@ -663,21 +728,21 @@ export class MegaBlock extends Block {
      *  block: BlockData
      * }} data
      */
-    insert = data => {
+    insert = (data) => {
         const ops = this.prepareInsert(data);
         return this.codex?.tx(ops).execute();
-    }
+    };
 
     /**
      * Removes a block from the mega block.
      * @param {import('./blocks/operations/block.ops').BlocksRemovalData & {
      *  id?: string,
-     * }} data 
+     * }} data
      */
-    remove = data => {
+    remove = (data) => {
         const ops = this.prepareRemove(data);
         return this.codex?.tx(ops).execute();
-    }
+    };
 
     /**
      * Prepares the splicing of blocks.
@@ -685,101 +750,126 @@ export class MegaBlock extends Block {
      *  block: BlockData
      * }} data
      */
-    replace = data => {
+    replace = (data) => {
         const ops = this.prepareReplace(data);
         return this.codex?.tx(ops).execute();
-    }
+    };
 
     // APPLYERS
 
-    applyInsert = applier(op => {
+    applyInsert = applier((op) => {
         /** @type {{ offset: number, blocks: BlockData[] }} */
         const data = op.data;
 
         this.log("Inserting blocks", data.blocks, "at", data.offset);
 
         /** @type {T[]} */
-        const blocks = data.blocks.map((b) => {
-            const {type, init} = b;
-            this.log(this.blocks)
-            const B = this.blocks.find(B => B.manifest.type === type);
-            if (!B) throw new Error(`Block type "${type}" not found in mega block.`);
-            const block = new B(this instanceof Codex ? this : this.codex, { ...b, ...(init || {})});
-            this.codex?.registry.set(block.id, block);
-            this.log('Registered block:', block);
-            return block;
-        }).filter(b => b instanceof Block);
+        const blocks = data.blocks
+            .map((b) => {
+                const { type, init } = b;
+                this.log(this.blocks);
+                const B = this.blocks.find((B) => B.manifest.type === type);
+                if (!B)
+                    throw new Error(
+                        `Block type "${type}" not found in mega block.`,
+                    );
+                const block = new B(this instanceof Codex ? this : this.codex, {
+                    ...b,
+                    ...(init || {}),
+                });
+                this.codex?.registry.set(block.id, block);
+                this.log("Registered block:", block);
+                return block;
+            })
+            .filter((b) => b instanceof Block);
 
         this.children = [
             ...this.children.slice(0, data.offset),
             ...blocks,
-            ...this.children.slice(data.offset)
+            ...this.children.slice(data.offset),
         ];
 
         return blocks;
-    })
+    });
 
-    applyRemove = applier(op => {
+    applyRemove = applier((op) => {
         /** @type {{ ids: string[] }} */
         const data = op.data;
-        const removed = this.children.filter(child => data.ids.includes(child.id));
-        this.log("Removing blocks", removed.map(b => b.type), "with IDs", data.ids);
-        this.children = this.children.filter(child => !data.ids.includes(child.id));
-        this.log("Remaining blocks", this.children.map(b => b.type));
-        removed.forEach(b => {
+        const removed = this.children.filter((child) =>
+            data.ids.includes(child.id),
+        );
+        this.log(
+            "Removing blocks",
+            removed.map((b) => b.type),
+            "with IDs",
+            data.ids,
+        );
+        this.children = this.children.filter(
+            (child) => !data.ids.includes(child.id),
+        );
+        this.log(
+            "Remaining blocks",
+            this.children.map((b) => b.type),
+        );
+        removed.forEach((b) => {
             if (b.parent === this) b.parent = null;
-            if (!b.parent && this.codex?.registry.has(b.id)) this.codex?.registry.delete(b.id);
-        })
+            if (!b.parent && this.codex?.registry.has(b.id))
+                this.codex?.registry.delete(b.id);
+        });
         return removed;
-    })
+    });
 
-    applyReplace = applier(op => {
+    applyReplace = applier((op) => {
         /** @type {{ from: number, to: number, blocks: BlockData[] }} */
         const data = op.data;
 
-        const blocks = data.blocks?.map(({type, init}) => {
-            
-            const B = this.blocks.find(B => B.manifest.type === type);
-            if (!B) throw new Error(`Block type "${type}" not found in mega block.`);
-            return new B(this instanceof Codex ? this : this.codex, init);
-        }).filter(b => b instanceof Block) || [];
+        const blocks =
+            data.blocks
+                ?.map(({ type, init }) => {
+                    const B = this.blocks.find((B) => B.manifest.type === type);
+                    if (!B)
+                        throw new Error(
+                            `Block type "${type}" not found in mega block.`,
+                        );
+                    return new B(
+                        this instanceof Codex ? this : this.codex,
+                        init,
+                    );
+                })
+                .filter((b) => b instanceof Block) || [];
 
         const removed = [...this.children].slice(data.from, data.to);
 
         this.children = [
             ...this.children.slice(0, data.from),
             ...blocks,
-            ...this.children.slice(data.to)
+            ...this.children.slice(data.to),
         ];
 
-        removed.forEach(b => {
+        removed.forEach((b) => {
             if (b.parent === this) b.parent = null;
-            if (!b.parent && this.codex?.registry.has(b.id)) this.codex?.registry.delete(b.id);
+            if (!b.parent && this.codex?.registry.has(b.id))
+                this.codex?.registry.delete(b.id);
         });
 
-        return {removed, added: blocks};
-    })
-
+        return { removed, added: blocks };
+    });
 
     // TRANSFORMERS
 
     toJSON() {
         return {
             ...super.toJSON(),
-            children: this.children.map(child => child.toJSON())
+            children: this.children.map((child) => child.toJSON()),
         };
     }
 
     data() {
         return {
             ...super.data(),
-            children: this.children.map(child => child.data())
+            children: this.children.map((child) => child.data()),
         };
     }
-
-
-
-
 
     /**
      * @param {any} data - The actual input data.
@@ -787,19 +877,19 @@ export class MegaBlock extends Block {
     $in(data) {
         if (data.children && Array.isArray(data.children)) {
             const newChildren = data.children.map((c) => {
-                const B = this.blocks.find(B => B.manifest.type === c.type);
+                const B = this.blocks.find((B) => B.manifest.type === c.type);
                 if (!B) {
                     this.log(`Block type "${c.type}" not found in mega block.`);
                     return null;
                 }
-                return new B(this instanceof Codex ? this : this.codex, {in: c});
-            })
+                return new B(this instanceof Codex ? this : this.codex, {
+                    in: c,
+                });
+            });
 
-            this.children = newChildren.filter(b => b instanceof Block);
+            this.children = newChildren.filter((b) => b instanceof Block);
         }
-        
     }
-
 
     /**
      * @param {Array<any>} children
@@ -812,7 +902,7 @@ export class MegaBlock extends Block {
     static data(children, rest = {}) {
         return {
             ...super.data(rest),
-            children
-        }
+            children,
+        };
     }
 }

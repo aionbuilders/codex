@@ -4,6 +4,11 @@
  */
 
 
+/**
+ * @callback ExecutorMethod
+ * @param {...any} args - Additional arguments for the method.
+ */
+
 export class System {
     /** @type {SystemManifest} */
     static manifest = {
@@ -14,6 +19,12 @@ export class System {
         this.priority = priority;
 
         this.handlers = new Map();
+
+        /**
+         * A set of executors available on the system.
+         * @type {Map<string, Function>}
+         */
+        this.executors = new Map();
     }
 
 
@@ -22,7 +33,12 @@ export class System {
     }
 
 
-
+    /**
+     * Adds an executor to the system.
+     * @param {String} name
+     * @param {ExecutorMethod} callback
+     */
+    executor = (name, callback) => this.executors.set(name, callback);
 
     /**
      * Register an event handler for a specific event name.

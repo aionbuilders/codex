@@ -1,6 +1,6 @@
 import { untrack } from 'svelte';
 import { Block } from '../block.svelte';
-import { TextEdition } from './operations/text.ops';
+import { TextEdition, TextStyling } from './operations/text.ops';
 import { applier, executor, SMART, Transaction } from '../../utils/operations.utils';
 import { EDITABLE, TRANSFORMS_TEXT } from '../../utils/capabilities';
 import TextC from '../../components/Text.svelte';
@@ -10,6 +10,7 @@ import TextC from '../../components/Text.svelte';
 /**
 * @typedef {import('../block.svelte').BlockInit & {
 *   text?: String
+*   styles?: Styles
 * } & Styles} TextInit
 */
 
@@ -26,6 +27,9 @@ import TextC from '../../components/Text.svelte';
  *  code?: Boolean
  * }} Styles
  */
+
+
+/** @typedef {"bold"|"italic"|"underline"|"strikethrough"|"code"} Style */
 
 /**
 * @extends {Block}
@@ -48,11 +52,7 @@ export class Text extends Block {
 
     
         this.text = init.text || '';
-        this.bold = init.bold || false;
-        this.italic = init.italic || false;
-        this.underline = init.underline || false;
-        this.strikethrough = init.strikethrough || false;
-        this.code = init.code || false;
+        this.styles = init.styles || {};
         
         $effect.root(() => {
             $effect(() => {
@@ -69,6 +69,16 @@ export class Text extends Block {
         this.trine("edit", this.prepareEdit, this.edit, this.applyEdit);
 
         this.$init();
+
+
+
+        const tonCerveau = new Promise((resolve, reject) => {
+            reject("HeadacheError: Too much knowledge");
+        });
+
+
+
+
     }
     
 
@@ -82,12 +92,26 @@ export class Text extends Block {
     start = $derived(this.before ? (this.before.end ?? 0) : 0);
     /** @type {Number} */
     end = $derived(this.start + (this.text.length || 0));
-    
-    bold = $state(false);
-    italic = $state(false);
-    underline = $state(false);
-    strikethrough = $state(false);
-    code = $state(false);
+
+    /** @type {Styles} */
+    styles = $state({});
+
+    /** @param {"bold"|"italic"|"underline"|"strikethrough"|"code"} style */
+    toggleStyle = (style) => {
+        if (['bold', 'italic', 'underline', 'strikethrough', 'code'].includes(style)) {
+            this.styles[style] = !this.styles[style];
+        }
+    }
+
+    signature = $derived.by(() => {
+        let sig = 'text#';
+        if (this.styles.bold) sig += 'b';
+        if (this.styles.italic) sig += 'i';
+        if (this.styles.underline) sig += 'u';
+        if (this.styles.strikethrough) sig += 's';
+        if (this.styles.code) sig += 'c';
+        return sig;
+    })
     
     style = $derived([
         ...this.bold ? ['b'] : [],
@@ -315,7 +339,6 @@ export class Text extends Block {
     }
     
 
-
     
 
     
@@ -337,12 +360,13 @@ export class Text extends Block {
         this.refresh();
     }
 
+    //TODO: Replace .getStyles with direct access to this.styles
     getStyles = () => ({
-        bold: this.bold,
-        italic: this.italic,
-        underline: this.underline,
-        strikethrough: this.strikethrough,
-        code: this.code
+        bold: this.styles.bold,
+        italic: this.styles.italic,
+        underline: this.styles.underline,
+        strikethrough: this.styles.strikethrough,
+        code: this.styles.code
     });
 
     /** @param {Number} index */
@@ -391,17 +415,17 @@ export class Text extends Block {
             limit: this.text.length,
             before: from > 0 ? {
                 text: this.text.slice(0, from),
-                ...this.getStyles()
+                styles: this.getStyles()
             } : null,
             
             removed: from < to ? {
                 text: this.text.slice(from, to),
-                ...this.getStyles()
+                styles: this.getStyles()
             } : null,
             
             after: to < this.text.length ? {
                 text: this.text.slice(to),
-                ...this.getStyles()
+                styles: this.getStyles()
             } : null,
         };
     }
@@ -435,6 +459,110 @@ export class Text extends Block {
 
     /**
      * @param {{
+     *  from?: number|SMART,
+     *  to?: number|SMART
+     * }|import('../../utils/operations.utils').SMART} [data=SMART]
+     * @returns {import('../../utils/operations.utils').Operation[]}
+     */
+    prepareSplitting = data => {
+        if (!this.codex) return [];
+        if (!data) data = SMART;
+        if (data === SMART) data = {
+            from: this.selection?.start,
+            to: this.selection?.end
+        }
+        let { from = SMART, to = SMART } = data;
+        if (from === SMART) from = this.selection?.start ?? 0;
+        if (to === SMART) to = this.selection?.end ?? from;
+        from = this.normalizeIndex(from);
+        to = this.normalizeIndex(to);
+        if (to < from) to = from;
+        const { before, removed, after } = this.getSplittingData({ from, to });
+
+        const ops = [];
+        if (removed) 
+
+        return [];
+        
+    }
+
+
+
+    /**
+     * @param {{
+     *  from?: number|SMART,
+     *  to?: number|SMART,
+     *  styles?: Styles
+     * }} data 
+     */
+    prepareStyling = data => {
+        if (!this.codex) return [];
+        if (data.from === undefined && data.from !== 0) data.from = SMART;
+        if (data.to === undefined) data.to = data.from;
+        const from = this.normalizeIndex(typeof data.from === 'number' ? data.from : (this.selection?.start ?? 0));
+        const to = this.normalizeIndex(typeof data.to === 'number' ? data.to : (this.selection?.end ?? from));
+        const styles = data.styles || {};
+
+        const ops = [];
+
+        const before = from > 0 ? {
+            text: this.text.slice(0, from),
+            styles: this.getStyles()
+        } : null;
+
+        const after = to < this.text.length ? {
+            text: this.text.slice(to),
+            styles: this.getStyles()
+        } : null;
+
+        /** @type {Styles} */
+        const diff = {};
+        Object.entries(styles).forEach(([key, value]) => {
+            if (!(key === 'bold' || key === 'italic' || key === 'underline' || key === 'strikethrough' || key === 'code')) return;
+            if (this.styles[key] !== value) {
+                diff[key] = value;
+            }
+        });
+        const enable = Object.entries(diff).filter(([key, value]) => value === true).map(([key]) => key);
+        const disable = Object.entries(diff).filter(([key, value]) => value === false).map(([key]) => key);
+
+        const middle = to > from ? {
+            text: this.text.slice(from, to),
+            styles: {
+                ...this.getStyles(),
+                ...styles
+            }
+        } : null;
+
+        if (before) ops.push(...(this.parent?.prepareInsert({blocks: [Text.data(before)], offset: this.i}) || []));
+        if (after) ops.push(...(this.parent?.prepareInsert({blocks: [Text.data(after)], offset: this.i + (before ? 1 : 0) + (middle ? 1 : 0)}) || []));
+        if (middle) ops.push(...[
+            ...this.prepareEdit({ text: middle.text, from: 0, to: -1 }),
+            new TextStyling(this, { enable: enable, disable: disable, ids: [this.uuid] })
+        ]);
+
+        return ops;
+    }
+
+
+    applyStyling = applier(op => {
+        /** @type {{enable?: Style[], disable?: Style[]}} */
+        const data = op.data;
+        if (data.enable) {
+            data.enable.forEach(style => {
+                this.styles[style] = true;
+            });
+        }
+        if (data.disable) {
+            data.disable.forEach(style => {
+                this.styles[style] = false;
+            });
+        }
+    }, "style");
+
+
+    /**
+     * @param {{
      *  text?: string,
      *  styles?: Styles
      * }} data 
@@ -443,11 +571,15 @@ export class Text extends Block {
     $in(data) {
         data.text && (this.text = data.text);
         data.styles && Object.entries(data.styles).forEach(([key, value]) => {
+            key = key.toLowerCase();
             if (['bold', 'italic', 'underline', 'strikethrough', 'code'].includes(key) && typeof value === 'boolean') {
-                this[key] = value;
+                if (!(key === 'bold' || key === 'italic' || key === 'underline' || key === 'strikethrough' || key === 'code')) return;
+                this.styles[key] = value;
             }
         });
     }
+
+    
 
 
     values = $derived({
@@ -458,7 +590,7 @@ export class Text extends Block {
         }
     });
 
-    debug = $derived(`${this.text} (${this.selection?.start}->${this.selection?.end})`);
+    debug = $derived(`${this.signature} (${this.selection?.start}->${this.selection?.end})`);
 
 
     /**
