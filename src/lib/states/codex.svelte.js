@@ -4,7 +4,7 @@
 * @property {Object<string, import('svelte').Component>} [components] - Initial blocks to be added to the codex.
 * @property {Array<typeof import('./block.svelte').Block>} [blocks] - Initial blocks to be added to the codex.
 * @property {import('./strategy.svelte').Strategy[]} [strategies] - Initial strategies to be added to the codex.
-* @property {import('./system.svelte').System[]} [systems] - Initial systems to be added to the codex.
+* @property {typeof import('./system.svelte').System[]} [systems] - Initial systems to be added to the codex.
 * @property {Record<string, any>} [config] - Configuration options for the codex and its preset.
 * @property {string[]} [omit] - List of block, strategies, systems to omit from the codex.
 */
@@ -70,11 +70,14 @@ export class Codex extends MegaBlock {
                         this.selection.observe(this.element);
                         this.enforceRequiredStyles();
 
-                        const inits = this.systems.filter(s => s.handlers.has('init')).sort((a, b) => b.priority - a.priority).map(s => s.handlers.get('init'));
-                        inits.forEach(init => init(this));
-                    })
-                }
+                        
+                        const Systems =  [...(this.preset?.systems.filter(s => !this.omited.systems.includes(s.manifest.name) && !(this.init.systems || []).find(s2 => s2.manifest.name === s.manifest.name)) || []), ...(this.init?.systems || [])];
+                        this.systems = Systems.map(SystemClass => new SystemClass(this));
 
+                        const inits = this.systems.filter(s => s.handlers.has('init')).map(s => s.handlers.get('init'));
+                        inits.forEach(init => init(this));
+                    });
+                }
             })
 
             $effect(() => {
@@ -111,9 +114,9 @@ export class Codex extends MegaBlock {
         ];
     }
 
-    get systems() {
-        return [...(this.preset?.systems.filter(s => !this.omited.systems.includes(s.manifest.name) && !(this.init.systems || []).find(s2 => s2.manifest.name === s.manifest.name)) || []).map(S => new S()), ...(this.init?.systems || [])];
-    }
+
+    /** @type {import('./system.svelte').System[]} */
+    systems = $state([]);
 
     get config() {
         return {
@@ -253,6 +256,20 @@ export class Codex extends MegaBlock {
         return results;
     }
 
+
+    /**
+     * Calls a method on the block.
+     * @param {String} name
+     * @param {...any} args
+     * @returns {any}
+     */
+    call(name, ...args) {
+        console.log(this.systems);
+        const method = this.systems.find(s => s.methods.has(name))?.methods.get(name);
+        console.log('Calling method:', name, 'with args:', args, 'found method:', method);
+        if (!method) return super.call(name, ...args);
+        return method(...args);
+    }
 
     /**
      * @param {{

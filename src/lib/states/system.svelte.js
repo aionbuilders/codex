@@ -3,6 +3,8 @@
  * @property {string} name - The name of the system.
  */
 
+import { Codex } from "./codex.svelte";
+
 
 /**
  * @callback ExecutorMethod
@@ -15,8 +17,12 @@ export class System {
         name: 'system',
     }
 
-    constructor(priority = 0) {
-        this.priority = priority;
+    /**
+     * @param {Codex} codex 
+     */
+    constructor(codex) {
+        /** @type {Codex} */
+        this.codex = codex;
 
         this.handlers = new Map();
 
@@ -25,6 +31,12 @@ export class System {
          * @type {Map<string, Function>}
          */
         this.executors = new Map();
+
+        /**
+         * A set of methods available on the block.
+         * @type {Map<string, Function>}
+         */
+        this.methods = new Map();
     }
 
 
@@ -32,13 +44,12 @@ export class System {
         return this.constructor.manifest;
     }
 
-
     /**
-     * Adds an executor to the system.
+     * Adds a method to the block.
      * @param {String} name
      * @param {ExecutorMethod} callback
      */
-    executor = (name, callback) => this.executors.set(name, callback);
+    method = (name, callback) => this.methods.set(name, callback);
 
     /**
      * Register an event handler for a specific event name.

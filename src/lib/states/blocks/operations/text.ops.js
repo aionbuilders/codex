@@ -1,11 +1,9 @@
 import { Operation } from "../../../utils/operations.utils";
 
-
 /**
  * @typedef {import('..').Text} TextBlock
  * @typedef {import('../../codex.svelte').Codex} CodexBlock
  */
-
 
 /**
  * @typedef {Object} TextEditionData
@@ -62,11 +60,10 @@ export class TextEdition extends Operation {
     }
 }
 
-
 /**
  * @typedef {Object} TextStylingData
- * @property {keyof TextBlock['styles'][]} [enable] - The style to enable.
- * @property {keyof TextBlock['styles'][]} [disable] - The style to disable.
+ * @property {(keyof TextBlock['styles'])[]} [enable] - The style to enable.
+ * @property {(keyof TextBlock['styles'])[]} [disable] - The style to disable.
  * @property {string[]} [ids] - The IDs of the text blocks to apply the style to.
  */
 
@@ -79,6 +76,6 @@ export class TextStyling extends Operation {
      * @param {TextStylingData} data
      */
     constructor(block, data) {
-        super(block, 'style', data);
+        super(block, '@codex/styling', data);
     }
 }

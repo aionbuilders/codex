@@ -46,7 +46,7 @@ export const textStyleStrategy = new Strategy(
             const last = enabled.at(-1) !== first ? enabled.at(-1) : null;
             const between = enabled.slice(1, -1).filter(t => t !== first && t !== last);
             if (last) ops.push(...last.prepareStyling({ styles: { [style]: false } }));
-            if (between.length) ops.push(new TextStyling(codex, { disable: [style], ids: between.map(t => t.uuid) }));
+            if (between.length) ops.push(new TextStyling(codex, { disable: [style], ids: between.map(t => t.id) }));
             if (first) ops.push(...first.prepareStyling({ styles: { [style]: false } }));
 
 
@@ -57,16 +57,16 @@ export const textStyleStrategy = new Strategy(
             const disabled = texts.filter(t => !t.styles[style]);
 
             const first = disabled[0];
-
             const last = disabled.at(-1) !== first ? disabled.at(-1) : null;
+            const between = disabled.slice(1, -1).filter(t => t !== first && t !== last);
             if (last) ops.push(...last.prepareStyling({ styles: { [style]: true } }));
+            if (between.length) ops.push(new TextStyling(codex, { enable: [style], ids: between.map(t => t.id) }));
             if (first) ops.push(...first.prepareStyling({ styles: { [style]: true } }));
-
-            
-
         }
 
         console.log({ops});
+
+        codex.tx(ops).execute();
         
 
 

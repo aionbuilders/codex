@@ -398,7 +398,6 @@ export class Text extends Block {
         return { text, from, to };
     }
 
-
     /**
     * @param {{
     *   from: number,
@@ -446,16 +445,12 @@ export class Text extends Block {
 
     applyEdit = applier(op => {
         /** @type {EditData} */
-        console.log('Applying text edit operation:', op);
         let {text = "", from, to} = op.data;
-        console.log('Before edit:', this.text);
         to = to ?? from;
         this.text = this.text.slice(0, from) + text + this.text.slice(to);
-        console.log('After edit:', this.text);
         this.resync();
         this.refresh();
     })
-
 
     /**
      * @param {{
@@ -480,13 +475,13 @@ export class Text extends Block {
         const { before, removed, after } = this.getSplittingData({ from, to });
 
         const ops = [];
-        if (removed) 
+        if (removed) {
+
+        }
 
         return [];
         
     }
-
-
 
     /**
      * @param {{
@@ -504,6 +499,8 @@ export class Text extends Block {
         const styles = data.styles || {};
 
         const ops = [];
+
+        const fullySelected = (from === 0 && to === this.text.length);
 
         const before = from > 0 ? {
             text: this.text.slice(0, from),
@@ -537,17 +534,17 @@ export class Text extends Block {
         if (before) ops.push(...(this.parent?.prepareInsert({blocks: [Text.data(before)], offset: this.i}) || []));
         if (after) ops.push(...(this.parent?.prepareInsert({blocks: [Text.data(after)], offset: this.i + (before ? 1 : 0) + (middle ? 1 : 0)}) || []));
         if (middle) ops.push(...[
-            ...this.prepareEdit({ text: middle.text, from: 0, to: -1 }),
+            ...(fullySelected ? [] : this.prepareEdit({text: middle.text, from: 0, to: -1 })),
             new TextStyling(this, { enable: enable, disable: disable, ids: [this.uuid] })
         ]);
 
         return ops;
     }
 
-
     applyStyling = applier(op => {
         /** @type {{enable?: Style[], disable?: Style[]}} */
         const data = op.data;
+
         if (data.enable) {
             data.enable.forEach(style => {
                 this.styles[style] = true;
@@ -558,7 +555,7 @@ export class Text extends Block {
                 this.styles[style] = false;
             });
         }
-    }, "style");
+    }, "@codex/styling", this);
 
 
     /**

@@ -1,6 +1,10 @@
 import { SvelteSet } from "svelte/reactivity";
 import { System } from "../../states/system.svelte";
-import { applier } from "$lib/utils/operations.utils";
+import { TextStyling } from "../../states/blocks/operations/text.ops";
+import { Codex } from "../../states/codex.svelte";
+import { Text } from "../../blocks";
+import { text } from "@sveltejs/kit";
+
 
 export class StyleSystem extends System {
     static manifest = {
@@ -8,22 +12,22 @@ export class StyleSystem extends System {
         description: 'A system for managing text styles',
     }
 
-    constructor(priority = 0) {
-        super(priority);
-
+    /** @param {Codex} codex */
+    constructor(codex) {
+        super(codex);
         this.pendingStyles = new SvelteSet();
-
-        this.executor('@codex/styling', this.applyStyling);
+        this.method('@codex/styling', this.applyStyling);
     }
+
+    texts = $derived(this.codex.recursive.filter(b => b instanceof Text))
 
 
     /**
-     * 
-     * @param {*} data 
+     * @param {TextStyling} op 
      */
-    applyStyling = data => {
-        console.log('Applying styling with data:', data);
-        const { styles, ids, disable } = data;
-        
+    applyStyling = op => {
+        const data = op.data;
+        const texts = this.texts.filter(t => data.ids?.includes(t.id));
+        texts.forEach(t => t.call("@codex/styling", op));
     }
 }

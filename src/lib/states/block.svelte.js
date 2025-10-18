@@ -385,7 +385,7 @@ export class Block {
      * @param {...any} args
      * @returns {any}
      */
-    call = (name, ...args) => { 
+    call(name, ...args) {
         const method = this.methods.get(name);
         if (!method)
             throw new Error(
@@ -595,10 +595,10 @@ export class MegaBlock extends Block {
         return this.constructor.manifest;
     }
 
-    /** @type {import('./system.svelte').System[]} */
-    get systems() {
-        return this.manifest?.systems || [];
-    }
+    // /** @type {import('./system.svelte').System[]} */
+    // get systems() {
+    //     return this.manifest?.systems || [];
+    // }
 
     /** @type {Array<new (...args: any[]) => T>} */
     get blocks() {
