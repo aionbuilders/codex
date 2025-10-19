@@ -140,6 +140,7 @@ export class Paragraph extends MegaBlock {
                 ]);
                 tx?.execute().then(tx => {
                     if (selection.start === undefined) return;
+                    console.log('Refocusing at offset:', selection.start + 1);
                     tx.focus({ start: selection.start + 1, end: selection.start + 1, block: this });
                 });
             }
@@ -229,7 +230,7 @@ export class Paragraph extends MegaBlock {
                         }));
                         const tx = this.codex.tx(ops);
                         tx.execute().then(() => {
-                            tx.focus({ start: offset + 1, end: offset + 1 });
+                            tx.focus({ start: offset + 1, end: offset + 1, block: this });
                         });
                     }
                 }
@@ -346,6 +347,7 @@ export class Paragraph extends MegaBlock {
      * @param {Focus} f
      */
     focus = (f) => requestAnimationFrame(() => {
+        this.log('Focusing paragraph', this.index, 'with focus data:', f);
         if (this.element) {
             const data = this.getFocusData(f);
             if (data) this.codex?.selection?.setRange(data.startElement, data.startOffset, data.endElement, data.endOffset);
@@ -370,9 +372,11 @@ export class Paragraph extends MegaBlock {
             start = 0;
             end = 0;
         }
-        
-        let startBlock = this.children.find(child => start >= child.start && start <= child.end)
-        let endBlock = this.children.find(child => end >= child.start && end <= child.end);
+        this.log('Getting focus data for paragraph', this.index, 'with normalized range:', { start, end });
+        this.log('Paragraph children:', this.children);
+        const startCandidates = this.children.filter(child => start >= child.start && start <= child.end);
+        let startBlock = startCandidates.find(child => child.start === start && child instanceof Text) || startCandidates[0];
+        let endBlock = start === end ? startBlock : this.children.find(child => end >= child.start && end <= child.end);
         if (start === end && startBlock instanceof Linebreak && start === startBlock.end && this.children.find(child => child.start === start)) startBlock = endBlock = this.children.find(child => child.start === start);
 
         const startData = startBlock ? startBlock.getFocusData({
@@ -730,9 +734,6 @@ export class Paragraph extends MegaBlock {
         } else if (data.type === 'children' && Array.isArray(data.data)) {
             return super.data(data.data, rest);
         }
-
-
-
     }
 
 }

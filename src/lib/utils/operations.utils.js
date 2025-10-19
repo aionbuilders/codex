@@ -29,8 +29,6 @@ export class Operation {
      * @param {Transaction} [tx] 
      */
     execute(tx) {
-        console.log('Executing operation:', this, 'in transaction:', tx?.uuid);
-        console.log(tx?.codex?.registry.get(this.block.id), this.block);
         const block = tx?.codex?.registry.get(this.block.id) || this.block;
         if (!block) throw new Error(`Block with id ${this.block.id} not found in codex registry`);
         this.block = block;

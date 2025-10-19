@@ -554,7 +554,6 @@ export class MegaBlock extends Block {
                     ...(child.init || {}),
                 });
                 this.codex?.registry.set(b.id, b);
-                console.log("Registered block:", b);
                 return b;
             });
         }
@@ -761,13 +760,10 @@ export class MegaBlock extends Block {
         /** @type {{ offset: number, blocks: BlockData[] }} */
         const data = op.data;
 
-        this.log("Inserting blocks", data.blocks, "at", data.offset);
-
         /** @type {T[]} */
         const blocks = data.blocks
             .map((b) => {
                 const { type, init } = b;
-                this.log(this.blocks);
                 const B = this.blocks.find((B) => B.manifest.type === type);
                 if (!B)
                     throw new Error(
@@ -778,7 +774,6 @@ export class MegaBlock extends Block {
                     ...(init || {}),
                 });
                 this.codex?.registry.set(block.id, block);
-                this.log("Registered block:", block);
                 return block;
             })
             .filter((b) => b instanceof Block);
@@ -798,18 +793,8 @@ export class MegaBlock extends Block {
         const removed = this.children.filter((child) =>
             data.ids.includes(child.id),
         );
-        this.log(
-            "Removing blocks",
-            removed.map((b) => b.type),
-            "with IDs",
-            data.ids,
-        );
         this.children = this.children.filter(
             (child) => !data.ids.includes(child.id),
-        );
-        this.log(
-            "Remaining blocks",
-            this.children.map((b) => b.type),
         );
         removed.forEach((b) => {
             if (b.parent === this) b.parent = null;

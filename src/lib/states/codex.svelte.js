@@ -88,7 +88,6 @@ export class Codex extends MegaBlock {
                         b.index = i;
                         this.registry.set(b.id, b);
                     });
-                    console.log('Registry updated:', [...this.registry.values()]);
                 })
             });
         })
@@ -280,7 +279,7 @@ export class Codex extends MegaBlock {
      * }} focus
      * @param {{tx?: Transaction|boolean}} options
      */
-    focus = (focus, options = {}) => {
+    focus = (focus, options = {}) => queueMicrotask(() =>{
         
         const {start = focus.offset || 0, end = focus.offset || focus.start || 0} = focus;
 
@@ -300,7 +299,7 @@ export class Codex extends MegaBlock {
             end: {node: data.endElement, offset: data.endOffset}
         });
         
-    };
+    });
 
     /**
      * @param {{start: number, end: number}} f
@@ -308,17 +307,17 @@ export class Codex extends MegaBlock {
     getFocusData(f) {
         const {start, end} = f;
 
-        const startNode = this.children.find(b => b.start <= start && b.end >= start);
-        const endNode = start === end ? startNode : this.children.find(b => b.start <= end && b.end >= end);
+        const startBlock = this.children.find(b => b.start <= start && b.end >= start);
+        const endBlock = start === end ? startBlock : this.children.find(b => b.start <= end && b.end >= end);
 
-        if (startNode && endNode) {
-            const startFocus = startNode.getFocusData({
-                start: start - startNode.start,
-                end: startNode === endNode ? end - startNode.start : startNode.length
+        if (startBlock && endBlock) {
+            const startFocus = startBlock.getFocusData({
+                start: start - startBlock.start,
+                end: startBlock === endBlock ? end - startBlock.start : startBlock.length
             })
-            const endFocus = startNode === endNode ? startFocus : endNode.getFocusData({
+            const endFocus = startBlock === endBlock ? startFocus : endBlock.getFocusData({
                 start: 0,
-                end: end - endNode.start
+                end: end - endBlock.start
             });
             if (!startFocus) throw new Error("Start focus data not found");
             if (!endFocus) throw new Error("End focus data not found");

@@ -77,5 +77,16 @@ export class TextStyling extends Operation {
      */
     constructor(block, data) {
         super(block, '@codex/styling', data);
+
+
+    }
+
+
+    undo() {
+        return [new TextStyling(this.block, {
+            enable: this.data.disable || [],
+            disable: this.data.enable || [],
+            ids: this.data.ids,
+        })];
     }
 }

@@ -5,7 +5,9 @@
       "Bash(jj diff:*)",
       "Bash(jj describe:*)",
       "Bash(jj status:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(jj bookmark set:*)",
+      "Bash(jj git push:*)"
     ],
     "deny": [],
     "ask": []

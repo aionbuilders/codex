@@ -66,7 +66,10 @@ export const textStyleStrategy = new Strategy(
 
         console.log({ops});
 
-        codex.tx(ops).execute();
+        codex.tx(ops).execute().then(tx => {
+            if (tx.selectionBefore) tx.focus(tx.selectionBefore);
+            
+        })
         
 
 

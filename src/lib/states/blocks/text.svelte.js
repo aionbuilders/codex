@@ -48,9 +48,7 @@ export class Text extends Block {
     * @param {TextInit} init */
     constructor(codex, init = {}) {
         super(codex, init);
-        this.log('Creating text block with init:', init);
 
-    
         this.text = init.text || '';
         this.styles = init.styles || {};
         
@@ -62,19 +60,11 @@ export class Text extends Block {
                     }
                 })
             })
-
-            $inspect(this.uuid, this.text).with(console.trace);
         });
         
         this.trine("edit", this.prepareEdit, this.edit, this.applyEdit);
 
         this.$init();
-
-
-
-        const tonCerveau = new Promise((resolve, reject) => {
-            reject("HeadacheError: Too much knowledge");
-        });
 
 
 
