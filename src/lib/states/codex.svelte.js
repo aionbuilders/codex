@@ -19,6 +19,7 @@ import { browser } from '$app/environment';
 import { untrack } from 'svelte';
 import { PlainPreset } from '../presets';
 import { SvelteMap } from 'svelte/reactivity';
+import { Pulse } from '@killiandvcz/pulse';
 
 export const initialStrategies = [
     ...codexStrategies
@@ -41,6 +42,8 @@ export class Codex extends MegaBlock {
     */
     constructor(init = {}) {
         super(null, init);
+
+        this.events = new Pulse();
 
         /** @type {CodexInit} */
         this.init = init;
@@ -155,13 +158,11 @@ export class Codex extends MegaBlock {
      * @param {Event} e - The event object
      * @param {string} eventType - The event type (e.g., 'keydown', 'input', 'beforeinput')
      * @param {string} strategyTag - The strategy tag to look for
-     * @param {function(any): void} [ascendCallback] - Callback for handling ascended data
      */
-    handleEvent = (e, eventType, strategyTag, ascendCallback) => {
+    handleEvent = async (e, eventType, strategyTag) => {
         try {
             const context = {event: e};
 
-            // First check codex-level strategies (tagged with "@codex")
             const codexStrategy = this.strategies?.filter(s => s.tags.includes('@codex') && s.tags.includes(strategyTag)).find(s => s.canHandle(this, context));
             if (codexStrategy) {
                 e.preventDefault();
@@ -172,7 +173,7 @@ export class Codex extends MegaBlock {
             let currentParent = this.selection?.parent;
 
             if (currentParent && currentParent instanceof MegaBlock) {
-                if (eventType === 'beforeinput' && currentParent === this) e.preventDefault();
+                if (eventType === 'onbeforeinput' && currentParent === this) e.preventDefault();
                 
                 while (currentParent) {
                     if (!(currentParent instanceof MegaBlock)) break;
@@ -180,7 +181,6 @@ export class Codex extends MegaBlock {
                     if (strategy) {
                         e.preventDefault();
                         strategy.execute(this, {...context, block: currentParent});
-
                         return;
                     }
                     currentParent = currentParent.parent || (currentParent === this ? null : this);
@@ -188,31 +188,20 @@ export class Codex extends MegaBlock {
 
             } else if (currentParent) {
                 // @ts-ignore
-                const handlers = this.selection?.anchoredBlocks.map(block => block[eventType]).filter(handler => typeof handler === 'function');
-                if (handlers.length === 0) return;
-                
-                let handler = handlers.at(-1);
-                /** @param {any} data */
-                const ascend = (data) => {
-                    const hIndex = handlers.indexOf(handler);
-                    if (hIndex > 0) {
-                        handler = handlers[hIndex - 1];
-                        handler(e, ascend, data);
-                    } else if (ascendCallback && data) {
-                        // Event has ascended to codex level - use callback instead of full dispatch
-                        ascendCallback(data);
-                    }
-                };
-                handler(e, ascend);
+                const block = this.selection?.anchoredBlocks.findLast(block => typeof block[eventType] === 'function');
+                if (!block) return;
+                const parentsTypes = block.parents.map(p => p.type).filter(t => t !== 'codex');
+                const types = [...parentsTypes, block.type].join(':');
+                this.log(`EMIT ${types}:${eventType}`, types);
+                await this.events.emit(`${types}:${eventType}`, { event: e, block });
+                const handler = block[eventType];
+                if (typeof handler === 'function') handler.call(block, e);
             } else if (eventType === 'beforeinput') {
                 e.preventDefault();
             }
         } catch (error) {
 
-        }
-        
-
-        
+        }        
     }
 
     /** @param {InputEvent} e */

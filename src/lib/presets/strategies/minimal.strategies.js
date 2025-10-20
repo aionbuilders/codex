@@ -6,7 +6,7 @@
 import { text } from "@sveltejs/kit";
 import { Text } from "../../blocks";
 import { Strategy } from "../../states/strategy.svelte";
-import { TextStyling } from "$lib/states/blocks/operations/text.ops";
+import { TextStyling } from "../../states/blocks/operations/text.ops";
 
 export const textStyleStrategy = new Strategy(
     '@codex/text-style',

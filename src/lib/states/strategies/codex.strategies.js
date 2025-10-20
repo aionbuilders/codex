@@ -2,7 +2,6 @@ import { INPUTABLE, MERGEABLE } from "../../utils/capabilities";
 import { Strategy } from "../strategy.svelte";
 import { until } from "../../utils/utils";
 import { GETDELTA } from "../../utils/operations.utils";
-import { Perf } from "$lib/utils/performance.utils";
 
 
 /** @typedef {import('../../types').Focus} Focus */

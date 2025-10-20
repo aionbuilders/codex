@@ -7,10 +7,10 @@ export class ParagraphSystem extends System {
     }
 
     /**
-     * @param {number} priority 
+     * @param {import('../codex.svelte').Codex} codex
      */
-    constructor(priority = 0) {
-        super(priority);
+    constructor(codex) {
+        super(codex);
 
         this.handler('init', this.handleInit.bind(this));
         this.handler('export', this.handleExport.bind(this));

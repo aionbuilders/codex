@@ -5,14 +5,18 @@
     import { generateMockCodexData } from './mock';
     import { browser } from '$app/environment';
     import { Paragraph } from '$lib/blocks';
+    import { RichPreset } from '$lib/presets';
+    import { Heading } from '$lib/states/blocks/heading.svelte';
     
     const data = browser && Codex.data([
         // ...generateMockCodexData({count: 200})
         // ...(Array(200).fill(Paragraph.data("This is a sample paragraph. You can edit this text, add new blocks, and explore the features of the Codex editor. Enjoy your writing experience!")))
-    ])
-    console.log({data});
-    
-    const codex = new Codex({in: data, config: {styles: true}});
+        Paragraph.data("This is a sample paragraph. You can edit this text, add new blocks, and explore the features of the Codex editor. Enjoy your writing experience!"),
+        Heading.data("## Welcome to Codex Editor"),
+        Paragraph.data("This is a sample paragraph. You can edit this text, add new blocks, and explore the features of the Codex editor. Enjoy your writing experience!"),
+    ]);
+
+    const codex = new Codex({in: data, preset: RichPreset, config: {styles: true}});
     const Editor = codex.component;
 </script>
 

@@ -44,8 +44,9 @@ export class DataTransformSystem extends System {
         handlers: ['input']
     }
 
-    constructor(priority = 0) {
-        super(priority);
+    /** @param {import('../codex.svelte').Codex} codex */
+    constructor(codex) {
+        super(codex);
 
         this.handler('input', this.handleInput.bind(this));
     }

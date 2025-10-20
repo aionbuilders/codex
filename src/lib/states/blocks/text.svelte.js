@@ -141,10 +141,11 @@ export class Text extends Block {
     selectionDebug = $derived(`${this.selection ? `Selection: ${this.selection.start} - ${this.selection.end} (${this.selection.length})` : 'No selection'}`);
     
     /** @type {import('../../utils/block.utils').BlockListener<KeyboardEvent>} */
-    onkeydown = (e, ascend) => {
+    onkeydown = (e) => {
+        
         if (e.key === 'Enter') {
             e.preventDefault();
-            return ascend({
+            return this.ascend(e, {
                 block: this,
                 action: 'split',
                 editData: this.selection?.start !== this.text.length ? {
@@ -157,7 +158,7 @@ export class Text extends Block {
                 } : undefined
             })
         }
-        if (e.key !== 'Backspace' && e.key !== 'Delete') return ascend();
+        if (e.key !== 'Backspace' && e.key !== 'Delete') return this.ascend(e);
         
         e.preventDefault();
         
@@ -167,7 +168,7 @@ export class Text extends Block {
         const { start, end } = this.selection;
         if (this.selection.length > 0) {
             if (this.selection.length === this.text.length) {
-                return ascend({
+                return this.ascend(e, {
                     action: 'delete',
                     block: this,
                 });
@@ -176,13 +177,13 @@ export class Text extends Block {
                 tx.focus({ start, end: start, block: this });
             })
         } else if ((isBackspace && start === 0) || (!isBackspace && end === this.text.length)) {
-            return ascend({
+            return this.ascend(e, {
                 action: 'nibble',
                 block: this,
                 what: isBackspace ? 'previous' : 'next'
             });
         } else if ((isBackspace && start === 1 && this.text.length === 1) || (!isBackspace && start === 0 && this.text.length === 1)) {
-            return ascend({
+            return this.ascend(e, {
                 action: 'delete',
                 block: this,
                 key: isBackspace ? 'Backspace' : 'Delete'
@@ -190,6 +191,7 @@ export class Text extends Block {
         } else {
             const from = isBackspace ? start - 1 : start;
             const to = isBackspace ? start : start + 1;
+            console.log('Editing text to remove character from', from, 'to', to);
             this.edit({
                 from,
                 to
@@ -572,6 +574,7 @@ export class Text extends Block {
     values = $derived({
         text: this.text,
         json: {
+            type: this.type,
             text: this.text,
             styles: this.getStyles()
         }

@@ -57,17 +57,15 @@ export class Linebreak extends Block {
     });
     
     /** @type {import('../../utils/block.utils').BlockListener<KeyboardEvent>} */
-    onkeydown = (e, ascend) => ascend({
+    onkeydown = (e) => this.ascend(e, {
         block: this,
         action: e.key === 'Backspace' ? 'delete' : undefined
     });
 
     /** @type {import('../../utils/block.utils').BlockListener<InputEvent>} */
-    onbeforeinput = (e, ascend) => {
+    onbeforeinput = (e) => {
         e.preventDefault();
-        ascend({
-            block: this,
-        });
+        this.ascend(e, { block: this });
     }
 
     onfocus = () => {

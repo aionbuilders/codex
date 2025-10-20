@@ -6,7 +6,6 @@ import { BlocksRemoval } from "./operations/block.ops";
 import { SMART, Operation, GETDELTA } from "../../utils/operations.utils";
 import { EDITABLE, INPUTABLE, MERGEABLE, TRANSFORMS_TEXT } from "../../utils/capabilities";
 import ParagraphC from "../../components/Paragraph.svelte";
-import { Perf } from "$lib/utils/performance.utils";
 
 /** @typedef {import('../../types').Focus} Focus */
 
@@ -87,11 +86,11 @@ export class Paragraph extends MegaBlock {
                     this.codex?.effect(ops);
                     if (selection?.isInParagraph) this.focus({ start: selection.start, end: selection.end });
                 }
-            })
+            });
 
         });
 
-        
+        this.onkeydown = this.onkeydown.bind(this);
     }
     
     /** @type {HTMLParagraphElement?} */
@@ -102,7 +101,7 @@ export class Paragraph extends MegaBlock {
         const lastChild = this.children.findLast(child => child.selected);
 
         const firstOffset = firstChild && firstChild.start + (firstChild instanceof Text ? firstChild.selection?.start : 0);
-        const lastOffset = lastChild && lastChild.start + (lastChild instanceof Text ? lastChild.selection?.end : 1);
+        const lastOffset = lastChild && lastChild.start + (lastChild instanceof Text ? lastChild.selection?.end : this.codex?.selection.collapsed ? 0 : 1);
 
         if (this.selected) return {
             start: firstOffset,
@@ -148,12 +147,13 @@ export class Paragraph extends MegaBlock {
     }
     
     /** @type {import('../../utils/block.utils').BlockListener<KeyboardEvent>} */
-    onkeydown = (e, ascend, data) => {
+    onkeydown(e, data) {
         if (!this.codex) return;
         const selected = this.children?.filter(c => c.selected);
         const first = selected[0];
         const last = selected[selected.length - 1];
         const selection = this.selection;
+        this.log('Paragraph onkeydown event', e, 'with data:', data, 'and selection:', selection);
 
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -186,12 +186,11 @@ export class Paragraph extends MegaBlock {
                 })
             }
 
-            
-
             return;
         }
 
         if (data) {
+            this.log('Handling onkeydown with data:', data);
             if (data?.action === 'delete') {
                 /** @type {{block: Text, key: String}} */
                 const {block, key = e.key} = data;
@@ -202,7 +201,7 @@ export class Paragraph extends MegaBlock {
                         ...this.prepareRemove({ ids: [block.id] }),
                     ])
                     tx.execute().then(() => {
-                        const offset = key === 'Backspace' ? selection.start - 1 : selection.start;
+                        const offset = key === 'Backspace' ? selection.start : selection.start;
                         this.log('Refocusing at offset:', offset);
                         tx.focus({ start: offset, end: offset, block: this });
                     });

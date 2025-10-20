@@ -42,8 +42,6 @@ export class Operation {
         return result;
     }
 
-
-
     toJSON() {
         return {
             block: {
@@ -70,6 +68,8 @@ export class Transaction {
 
     /** @param {Operation[]} [ops] @param {import('../states/codex.svelte').Codex} [codex] @param {Transaction?} [undoing] */
     constructor(ops = [], codex, undoing = null) {
+        console.log('Creating Transaction with ops:', ops);
+        console.trace();
         this.codex = codex;
         this.operations = new Set(ops);
         
@@ -217,6 +217,7 @@ export class Transaction {
  * @returns {Executor<T>}
  */
 export const executor = (block, callback) => (data) => {
+    console.log('Executing operations on block', block, 'with data:', data);
     if (!block?.codex) return Promise.reject(new Error('Block is not attached to a Codex instance'));
     const ops = callback(data);
     return block.codex.tx(ops).execute();

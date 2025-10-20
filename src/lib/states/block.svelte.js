@@ -111,6 +111,7 @@ export class Block {
     }
 
     $init() {
+        this.log("Initialisation:", this.in);
         if (this.in?.type === this.manifest.type) this.$in(this.in);
     }
 
@@ -328,32 +329,30 @@ export class Block {
     }
 
     /** @type {Object<string, any>} */
-    values = $state({});
+    values = $state({
+        json: { type: this.type }
+    });
 
     /** @type {Object<string, any>} */
     metadata = $state({});
 
     /** @param {String} operation */
-    supports = (operation) =>
-        (this.manifest?.operations && operation in this.manifest.operations) ||
-        false;
+    supports = (operation) => (this.manifest?.operations && operation in this.manifest.operations) || false;
 
-    /**
-     * @param {String} name
-     * @param {Event} e
-     * @param {*} data
-     */
-    ascend = (name, e, data) => {
-        if (this.parents.length) {
-            const callableParent = this.parents.find(
-                (parent) => typeof parent[name] === "function",
-            );
+    /** @param {Event} event @param {...any} args */
+    ascend(event, ...args) {
+        this.log('Ascending event', event, 'with args:', args);
+        if (this.parents.length && event instanceof Event) {
+            const eventType = event.type;
+            const callableParent = this.parents.findLast((parent) => typeof parent[`on${eventType}`] === "function");
             if (callableParent) {
-                e.preventDefault();
-                callableParent[name](e, data);
+                this.log(`Ascending event "${eventType}" to parent "${callableParent.type}"`);
+                /** @type {function(Event, ...any): void} */
+                const method = callableParent[`on${eventType}`];
+                if (typeof method === "function") return method.apply(callableParent, [event, ...args]);
             }
         }
-    };
+    }
 
     /**
      * Adds an executor to the block.
@@ -759,7 +758,6 @@ export class MegaBlock extends Block {
     applyInsert = applier((op) => {
         /** @type {{ offset: number, blocks: BlockData[] }} */
         const data = op.data;
-
         /** @type {T[]} */
         const blocks = data.blocks
             .map((b) => {
