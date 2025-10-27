@@ -51,11 +51,11 @@ export class TextEdition extends Operation {
 
     undo() {
         if (this.metadata.op === 'delete') {
-            return [new TextEdition(this.block, { text: this.deleted, from: this.data.from })];
+            return this.ops(new TextEdition(this.block, { text: this.deleted, from: this.data.from }));
         } else if (this.metadata.op === 'insert') {
-            return [new TextEdition(this.block, { from: this.data.from, to: this.data.from + this.inserted.length })];
+            return this.ops(new TextEdition(this.block, { from: this.data.from, to: this.data.from + this.inserted.length }));
         } else {
-            return [new TextEdition(this.block, { text: this.deleted, from: this.data.from, to: this.data.from + this.inserted.length })];
+            return this.ops(new TextEdition(this.block, { text: this.deleted, from: this.data.from, to: this.data.from + this.inserted.length }));
         }
     }
 }
@@ -83,10 +83,10 @@ export class TextStyling extends Operation {
 
 
     undo() {
-        return [new TextStyling(this.block, {
+        return this.ops(new TextStyling(this.block, {
             enable: this.data.disable || [],
             disable: this.data.enable || [],
             ids: this.data.ids,
-        })];
+        }));
     }
 }

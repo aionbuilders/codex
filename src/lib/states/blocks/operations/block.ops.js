@@ -36,9 +36,7 @@ export class BlocksInsertion extends Operation {
     }
 
     undo() {
-        return [
-            new BlocksRemoval(this.block, {ids: this.results.map(b => b.id)})
-        ]
+        return this.ops(new BlocksRemoval(this.block, {ids: this.results.map(b => b.id)}));
     }
 
 }
@@ -70,9 +68,7 @@ export class BlocksRemoval extends Operation {
     }
 
     undo() {
-        return [
-            new BlocksInsertion(this.block, {blocks: this.data.blocks || [], offset: this.data.blocks?.[0]?.i || 0})
-        ]
+        return this.ops(new BlocksInsertion(this.block, {blocks: this.data.blocks || [], offset: this.data.blocks?.[0]?.i || 0}));
     }
 
 }
@@ -109,11 +105,9 @@ export class BlocksReplacement extends Operation {
     get debug() {
         return `Replace blocks ${this.data.blocks?.map(b => b.type).join(', ')} at ${this.data.from}-${this.data.to}`;
     }
-
+    
     undo() {
-        return [
-            new BlocksReplacement(this.block, {from: this.data.from, to: this.data.from + (this.data.blocks?.length || 0), blocks: this.data.oldBlocks || []})
-        ]
+        return this.ops(new BlocksReplacement(this.block, {from: this.data.from, to: this.data.from + (this.data.blocks?.length || 0), blocks: this.data.oldBlocks || []}));
     }
 
 }

@@ -1,3 +1,4 @@
+import { Operations } from "$lib/utils/operations.utils";
 import { Strategy } from "../../../states/strategy.svelte";
 import { Linebreak } from "../linebreak.svelte";
 import { Text } from "../text.svelte";
@@ -28,7 +29,7 @@ const replace = (paragraph, content) => {
 
     const index = paragraph.children.indexOf(start);
 
-    const ops = [];
+    const ops = new Operations();
 
     ops.push(...(end instanceof Text ? end.prepareEdit({
         from: 0,

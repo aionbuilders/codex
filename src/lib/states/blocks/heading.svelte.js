@@ -34,7 +34,7 @@ export class Heading extends Paragraph {
             this.log(this.selection);
             if (this.selection?.start === 0 && this.selection?.end === 0) {
                 e.preventDefault();
-                const ops = [];
+                const ops = this.ops();
                 const children = this.childrenWithoutTrailingLinebreak;
                 ops.push(
                     ...(this.prepareDestroy() || []),

@@ -4,7 +4,7 @@
  * @property {string[]} params - Parameters for the operation, such as coordinates or block IDs.
  * @property {string} handler - The name of the handler function to execute for this operation.
  */
-import { applier, preparer } from "../utils/operations.utils";
+import { applier, Operations, preparer } from "../utils/operations.utils";
 import {
     BlocksInsertion,
     BlocksRemoval,
@@ -30,6 +30,7 @@ import { untrack } from "svelte";
  *   blocks: Array<BlockConstructor>;
  *   strategies?: import('./strategy.svelte').Strategy[];
  *   systems?: import('./system.svelte').System[];
+ *   schema?: import('zod').ZodTypeAny;
  * }} MegaBlockManifest
  */
 
@@ -50,14 +51,17 @@ import { untrack } from "svelte";
 
 /**
  * @typedef {Object} BlockInit
+ * @property {string} [type] - The type of the block.
  * @property {string} [id] - The unique identifier for the block.
  * @property {Object} [metadata] - Metadata associated with the block.
  * @property {InData} [in] - Initial values for the block.
  */
 
-/** @typedef {{
- *  children: BlockInit[]
- * } & BlockInit } MegaBlockInit */
+/** 
+ * @typedef {{
+ *  children?: BlockInit[]
+ * } & BlockInit } MegaBlockInit
+ */
 
 /**
  * @typedef {Object} BlockData
@@ -108,6 +112,8 @@ export class Block {
         this.method("delete", () => this.rm());
 
         this.uuid = crypto.randomUUID();
+
+        this.preparator("destroy", this.prepareDestroy.bind(this));
     }
 
     $init() {
@@ -329,7 +335,7 @@ export class Block {
     }
 
     /** @type {Object<string, any>} */
-    values = $state({
+    values = $derived({
         json: { type: this.type }
     });
 
@@ -342,14 +348,23 @@ export class Block {
     /** @param {Event} event @param {...any} args */
     ascend(event, ...args) {
         this.log('Ascending event', event, 'with args:', args);
+        if (!this.codex) return;
         if (this.parents.length && event instanceof Event) {
             const eventType = event.type;
             const callableParent = this.parents.findLast((parent) => typeof parent[`on${eventType}`] === "function");
             if (callableParent) {
                 this.log(`Ascending event "${eventType}" to parent "${callableParent.type}"`);
-                /** @type {function(Event, ...any): void} */
-                const method = callableParent[`on${eventType}`];
-                if (typeof method === "function") return method.apply(callableParent, [event, ...args]);
+                const parentsTypes = callableParent.parents.map(p => p.type).filter(t => t !== 'codex');
+                const types = [...parentsTypes, callableParent.type].join(':');
+                this.log(`EMIT ${types}:${eventType}`, types);
+                this.codex.events.emit(`${types}:${eventType}`, { event, block: callableParent, args }).then(E => {
+                    if (!E.get('stopped')) {
+                        /** @type {function(Event, ...any): void} */
+                        const method = callableParent[`on${eventType}`];
+                        if (typeof method === "function") return method.apply(callableParent, [event, ...args]);
+                    }
+                })
+                
             }
         }
     }
@@ -479,10 +494,7 @@ export class Block {
 
     /** @returns {import('../utils/operations.utils').Operation[]} */
     prepareDestroy = () => {
-        const ops = this.parent
-            ? this.parent.prepareRemove({ ids: [this.id] })
-            : [];
-        return ops;
+        return this.ops(this.parent ? this.parent.prepareRemove({ ids: [this.id] }) : []);
     };
 
     destroy = () => this.codex?.tx(this.prepareDestroy()).execute();
@@ -507,6 +519,9 @@ export class Block {
             ...data,
         };
     }
+
+    /** @param {...import('../utils/operations.utils').Ops} ops */
+    ops = (...ops) => new Operations(...ops);
 
     /**
      * @param {{
@@ -655,12 +670,10 @@ export class MegaBlock extends Block {
             if (!data.blocks || !data.blocks.length)
                 throw new Error("No blocks to insert.");
 
-            return [
-                new BlocksInsertion(this, {
-                    offset,
-                    blocks: data.blocks,
-                }),
-            ];
+            return this.ops(new BlocksInsertion(this, {
+                offset,
+                blocks: data.blocks,
+            }))
         },
     );
 
@@ -676,14 +689,8 @@ export class MegaBlock extends Block {
                 'Cannot sdow brier provide both "id" and "ids" to remove blocks.',
             );
         if (id) ids = [id];
-        if (!ids || !ids.length)
-            throw new Error("No ids provided to remove blocks.");
-
-        return [
-            new BlocksRemoval(this, {
-                ids,
-            }),
-        ];
+        if (!ids || !ids.length) return this.ops();
+        return this.ops(new BlocksRemoval(this, { ids }));
     }
 
     /**
@@ -709,13 +716,9 @@ export class MegaBlock extends Block {
         if (!data.blocks || !data.blocks.length)
             throw new Error("No blocks to insert.");
 
-        return [
-            new BlocksReplacement(this, {
-                from,
-                to,
-                blocks: data.blocks,
-            }),
-        ];
+
+        return this.ops(new BlocksReplacement(this, { from, to, blocks: data.blocks }));
+
     };
 
     // EXECUTORS
@@ -727,7 +730,7 @@ export class MegaBlock extends Block {
      * }} data
      */
     insert = (data) => {
-        const ops = this.prepareInsert(data);
+        const ops = this.ops(this.prepareInsert(data));
         return this.codex?.tx(ops).execute();
     };
 
@@ -738,7 +741,7 @@ export class MegaBlock extends Block {
      * }} data
      */
     remove = (data) => {
-        const ops = this.prepareRemove(data);
+        const ops = this.ops(this.prepareRemove(data));
         return this.codex?.tx(ops).execute();
     };
 
@@ -749,7 +752,7 @@ export class MegaBlock extends Block {
      * }} data
      */
     replace = (data) => {
-        const ops = this.prepareReplace(data);
+        const ops = this.ops(this.prepareReplace(data));
         return this.codex?.tx(ops).execute();
     };
 
@@ -874,15 +877,22 @@ export class MegaBlock extends Block {
         }
     }
 
+    values = $derived({
+        json: {
+            ...super.values.json,
+            children: this.children.map((child) => child.values.json).filter(c => c !== null),
+        }
+    });
+
     /**
-     * @param {Array<any>} children
+     * @param {Array<any>} [children]
      * @param {{
      *  id?: string,
      *  metadata?: Object<string, any>,
      * } & Object<string, any>} rest
      * @returns
      */
-    static data(children, rest = {}) {
+    static data(children = [], rest = {}) {
         return {
             ...super.data(rest),
             children,

@@ -23,6 +23,8 @@ export class Operation {
 
         /** @type {any} */
         this.results = null;
+
+        this.ops = this.ops.bind(this);
     }
 
     /**
@@ -33,7 +35,7 @@ export class Operation {
         if (!block) throw new Error(`Block with id ${this.block.id} not found in codex registry`);
         this.block = block;
         
-        const result = this.block.call(this.name, this);
+        const result = this.block.call(this.name, this, tx);
         this.results = result;
         if (tx && tx instanceof Transaction) {
             tx.results.push({ operation: this, result });
@@ -57,21 +59,62 @@ export class Operation {
         return ``;
     }
 
-    /** @returns {Operation[] | null} */
+    /** @returns {Operation[] | Operations | null} */
     undo() {
         return null;
+    }
+
+    /** @param {...Operation|Operation[]|Operations} ops */
+    ops(...ops) {
+        return new Operations(...ops);
     }
 }
 
 
+/** 
+ * @typedef {(Operation|Operations|Operation[])} Ops
+ */
+
+/** @extends {Array<Operation>} */
+export class Operations extends Array {
+    /** @param {...Ops} ops */
+    constructor(...ops) {
+        super();
+        this.add(...ops);
+
+        this.metadata = new Map();
+    }
+
+
+    /** @param {...Ops} ops */
+    add(...ops) {
+        ops.forEach(op => {
+            if (op instanceof Operation) this.push(op);
+            else if (Array.isArray(op)) this.push(...op);
+        });
+        return this;
+    }
+    
+    /**
+     * Supprime une opération (compat Set)
+     * @param {import('./operations.utils').Operation} op
+     */
+    delete(op) {
+        const idx = this.indexOf(op);
+        if (idx > -1) this.splice(idx, 1);
+        return idx > -1;
+    }
+}
+
+
+
+
 export class Transaction {
 
-    /** @param {Operation[]} [ops] @param {import('../states/codex.svelte').Codex} [codex] @param {Transaction?} [undoing] */
+    /** @param {Operation[]|Operations} [ops] @param {import('../states/codex.svelte').Codex} [codex] @param {Transaction?} [undoing] */
     constructor(ops = [], codex, undoing = null) {
-        console.log('Creating Transaction with ops:', ops);
-        console.trace();
         this.codex = codex;
-        this.operations = new Set(ops);
+        this.operations = ops instanceof Operations ? ops : new Operations(...ops);
         
         /** @type {Transaction?} - Tx that is being undone */
         this.undoing = undoing;
@@ -192,7 +235,7 @@ export class Transaction {
 
     toJSON() {
         return {
-            operations: Array.from(this.operations).map(op => op.toJSON())
+            operations: this.operations.map(op => op.toJSON())
         };
     }
 

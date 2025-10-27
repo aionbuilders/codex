@@ -7,6 +7,7 @@ import { text } from "@sveltejs/kit";
 import { Text } from "../../blocks";
 import { Strategy } from "../../states/strategy.svelte";
 import { TextStyling } from "../../states/blocks/operations/text.ops";
+import { Operations } from "$lib/utils/operations.utils";
 
 export const textStyleStrategy = new Strategy(
     '@codex/text-style',
@@ -37,7 +38,7 @@ export const textStyleStrategy = new Strategy(
         /** @type {Text[]} */
         const texts = codex.recursive.filter(b => b instanceof Text && b.selected);
 
-        const ops = [];
+        const ops = new Operations();
 
         if (texts.every(t => t.styles[style])) {
             const enabled = texts.filter(t => t.styles[style]);

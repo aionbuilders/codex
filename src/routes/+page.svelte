@@ -7,6 +7,7 @@
     import { Paragraph } from '$lib/blocks';
     import { RichPreset } from '$lib/presets';
     import { Heading } from '$lib/states/blocks/heading.svelte';
+    import { List } from '$lib/states/blocks/list.svelte';
     
     const data = browser && Codex.data([
         // ...generateMockCodexData({count: 200})
@@ -14,6 +15,7 @@
         Paragraph.data("This is a sample paragraph. You can edit this text, add new blocks, and explore the features of the Codex editor. Enjoy your writing experience!"),
         Heading.data("## Welcome to Codex Editor"),
         Paragraph.data("This is a sample paragraph. You can edit this text, add new blocks, and explore the features of the Codex editor. Enjoy your writing experience!"),
+        List.data()
     ]);
 
     const codex = new Codex({in: data, preset: RichPreset, config: {styles: true}});

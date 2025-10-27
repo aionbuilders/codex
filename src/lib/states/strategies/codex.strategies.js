@@ -1,13 +1,13 @@
 import { INPUTABLE, MERGEABLE } from "../../utils/capabilities";
 import { Strategy } from "../strategy.svelte";
 import { until } from "../../utils/utils";
-import { GETDELTA } from "../../utils/operations.utils";
+import { GETDELTA, Operations } from "../../utils/operations.utils";
+import { tweened } from "svelte/motion";
 
 
 /** @typedef {import('../../types').Focus} Focus */
 
 /**
- * 
  * @param {import('../codex.svelte').Codex} codex 
  * @param {any} data 
  */
@@ -15,16 +15,14 @@ const replace = (codex, data) => {
     const $REFOCUS = Symbol('refocus');
 
     const startBlock = codex.children.find(child => child.selected);
-    const startPosition = startBlock && (startBlock.start + (startBlock.selection ? startBlock.selection.start : 0)) || 0;
+    const startPosition = startBlock && (startBlock.start + (startBlock.selection ? (startBlock.selection.start || 0) : 0)) || 0;
     const endBlock = codex.children.findLast(child => child.selected && child !== startBlock);
     const betweenBlocks = ((startBlock && endBlock) && codex.children.slice(codex.children.indexOf(startBlock) + 1, codex.children.indexOf(endBlock))) || []; 
 
     const isThereSelectedBlocksBeforeEnd = betweenBlocks.length || (startBlock && endBlock && startBlock !== endBlock);
 
-
-
     /** @type {import('../../utils/operations.utils').Operation[]} */
-    const ops = [];
+    const ops = new Operations();
 
     
     if (endBlock && endBlock !== startBlock) ops.push(...(endBlock ? (endBlock.prepare('remove')): []));
@@ -69,20 +67,14 @@ const replace = (codex, data) => {
                     return ops;
                 }
             }
-
             return [];
         }).execute().then(tx => {
             const { results } = tx;
 
             const hinter = results.map(r => r.operation).filter(op => op.metadata?.[$REFOCUS] && op.metadata?.[GETDELTA]);
             const refocus = startPosition + (hinter.reduce((acc, op) => acc + (op.metadata?.[GETDELTA]?.() || 0), 0));
-            if (data) codex.focus({ start: refocus, end: refocus });
-            // const data = codex.getFocusData({ start: refocus, end: refocus });
-            // if (data) codex.setRange({
-            //     start: { node: data.startElement, offset: data.startOffset },
-            //     end: { node: data.endElement, offset: data.endOffset },
-            // });
-
+            
+            tx.focus({ start: refocus, end: refocus });
         })
     }
 }

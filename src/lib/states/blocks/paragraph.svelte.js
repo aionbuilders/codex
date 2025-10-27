@@ -55,6 +55,7 @@ export class Paragraph extends MegaBlock {
 
         this.preparator('merge', this.prepareMerge.bind(this));
         this.preparator('split', this.prepareSplit.bind(this));
+        this.preparator('truncate', this.prepareTruncate.bind(this));
         this.preparator('transform', this.prepareTransform.bind(this));
         this.preparator('input', this.prepareInput.bind(this));
 
@@ -81,7 +82,7 @@ export class Paragraph extends MegaBlock {
                 if (this.element && this.children) {
                     const empties = this.children.filter(child => child instanceof Text && !child.text);
                     if (empties.length === 0) return;
-                    const ops = [ new BlocksRemoval(this, {ids: empties.map(empty => empty.id)}) ];
+                    const ops = this.ops(new BlocksRemoval(this, {ids: empties.map(empty => empty.id)}));
                     const selection = this.selection;
                     this.codex?.effect(ops);
                     if (selection?.isInParagraph) this.focus({ start: selection.start, end: selection.end });
@@ -212,7 +213,7 @@ export class Paragraph extends MegaBlock {
                 const {block, editData, newTextData} = data;
                 if (block) {
                     const blockIndex = this.children.findIndex(c => c === block);
-                    const ops = [];
+                    const ops = this.ops();
                     if (e.shiftKey) {
                         const offset = this.selection.start;
                         if (editData) ops.push(...block.prepareEdit(editData));
@@ -241,7 +242,7 @@ export class Paragraph extends MegaBlock {
                     const offset = what === 'previous' ? block.start - 1 : block.end;
                     const blockIndex = this.children.findIndex(c => c === block);
                     const target = what === 'previous' ? this.children[blockIndex - 1] : this.children[blockIndex + 1];
-                    const ops = [];
+                    const ops = this.ops();
                     if (!target) return;
                     if (target instanceof Linebreak) ops.push(...this.prepareRemove({ ids: [target.id] }));
                     else if (target instanceof Text) ops.push(...target.prepareEdit({
@@ -261,7 +262,7 @@ export class Paragraph extends MegaBlock {
         if (e.key === 'Enter') {
             e.preventDefault();
             if (e.shiftKey) {
-                const ops = [];
+                const ops = this.ops();
                 const offset = first && first.start + (first instanceof Text ? first.selection?.start : 0);
                 if (first === last) {
                     const index = this.children.findIndex(c => c === first);
@@ -315,7 +316,7 @@ export class Paragraph extends MegaBlock {
 
         if (groups.length) {
             /** @type {Operation[]} */
-            const ops = [];
+            const ops = this.ops();
             groups.forEach(group => {
                 const texts = group.map(i => this.children[i]).filter(c => c instanceof Text);
                 if (texts.length < 2) return;
@@ -402,6 +403,10 @@ export class Paragraph extends MegaBlock {
 
     debug = $derived(`${this.selection?.start} - ${this.selection?.end} [length: ${this.length}]`);
 
+
+    
+
+
     /**
      * Merges the paragraph with the given data.
      * @param {import('../../states/block.svelte').Block} source 
@@ -421,7 +426,7 @@ export class Paragraph extends MegaBlock {
     }
     /** @param {import('../../states/block.svelte').Block} source */
     prepareMerge = source => {
-        const ops = [];
+        const ops = this.ops();
         const children = source?.toInit?.().init?.children || [];
 
         if (!(this.children.at(-1) instanceof Linebreak)) {
@@ -446,7 +451,8 @@ export class Paragraph extends MegaBlock {
      * @return {Operation[]}
      */
     prepareSplit = data => {
-        if (!this.codex) return [];
+        const ops = this.ops();
+        if (!this.codex) return ops;
         if (!data) data = SMART;
         if (data === SMART) (data = { start: this.selection.start || 0, end: this.selection.end || this.selection.start || 0 });
         else if (data?.offset && (data.start || data.end)) throw new Error('Cannot specify both offset and start/end for split operation.');
@@ -460,8 +466,6 @@ export class Paragraph extends MegaBlock {
         const middleBlocks = this.children.slice(this.children.indexOf(startBlock) + 1, this.children.indexOf(endBlock));
         const afterBlocks = this.children.slice(this.children.indexOf(endBlock) + 1).filter(b => !(b instanceof Linebreak && this.children.at(-1) === b))
 
-        const ops = [];
-
         const startSplittingData = startBlock instanceof Text ? startBlock.getSplittingData() : null;
         const endSplittingData = endBlock instanceof Text ? endBlock.getSplittingData() : null;
         if (startBlock instanceof Text) ops.push(...startBlock.prepareEdit({
@@ -470,9 +474,8 @@ export class Paragraph extends MegaBlock {
         }))
         if (afterBlocks.length) ops.push(...this.prepareRemove({ ids: afterBlocks.map(b => b.id) }));
 
-        // /** @type {ParagraphInit} */
         const newParagraphInit = {
-            type: 'paragraph',
+            type: "paragraph",
             init: {
                 children: [
                     ...(endSplittingData?.after ? [{type: 'text', init: endSplittingData.after}] : []),
@@ -489,12 +492,33 @@ export class Paragraph extends MegaBlock {
         }, {key: 'new-paragraph'});
         
         if (insertion) ops.push(...insertion);
-
         
 
         
+        return ops;
+    }
 
-        
+
+    /**
+     * @param {{start?: number, end?: number, offset?: number} | SMART} [data=SMART]
+     */
+    prepareTruncate = data => {
+        const ops = this.ops();
+        const splitting = this.getSplittingData(data);
+        ops.metadata.set('splitting', splitting);
+        if (splitting) {
+            if (splitting.startBlock instanceof Text) ops.push(...splitting.startBlock.prepareEdit({
+                from: splitting.startSplittingData?.from || 0,
+                to: splitting.startSplittingData?.limit || 0,
+            }));
+            const toDelete = new Set([
+                ...splitting.middleBlocks.map(b => b.id),
+                (splitting.endBlock && splitting.endBlock !== splitting.startBlock) ? splitting.endBlock.id : null,
+                ...splitting.afterBlocks.map(b => b.id),
+            ]);
+            ops.push(...this.prepareRemove({ ids: Array.from(toDelete).filter(id => id !== null) }));
+            return ops;
+        }
         return ops;
     }
 
@@ -502,14 +526,13 @@ export class Paragraph extends MegaBlock {
      * @param {(import('../../states/blocks/operations/block.ops').BlocksRemovalData & {
      *  id?: String
      * })|import('../../utils/operations.utils').SMART} data 
-     * @returns {import('../../utils/operations.utils').Operation[]}
      */
     prepareRemove(data = SMART) {
         if (!(data === SMART)) return super.prepareRemove(data);
         
         
         /** @type {import('../../utils/operations.utils').Operation[]} */
-        const ops = [];
+        const ops = this.ops();
 
 
         if (this.parent) {
@@ -542,13 +565,14 @@ export class Paragraph extends MegaBlock {
      * }} data 
      */
     prepareTransform(data) {
+        const ops = this.ops();
         const position = this.normalizePosition(data.position || { offset: 0 });
         this.log('Preparing transform of paragraph:', this.index, 'with data:', data);
-        if (!this.codex) return [];
+        if (!this.codex) return ops;
         if (data.format === 'text') {
             this.log('Transforming from plain text:', data.content);
 
-            const ops = [];
+            
 
 
             return ops;
@@ -566,11 +590,11 @@ export class Paragraph extends MegaBlock {
      * }} data 
      */
     prepareInput(data) {
+        const ops = this.ops();
         data.position ??= SMART;
-        if (!data.content) return [];
+        if (!data.content) return ops;
         const position = this.normalizePosition(data.position === SMART || !data.position ? { start: this.selection.start, end: this.selection.end } : data.position);
-        if (!this.codex) return [];
-        const ops = [];
+        if (!this.codex) return ops;
 
         const content = data.content.map(c => {
             const BestBlock = c.type === 'text' ? Text : Linebreak;
@@ -611,7 +635,7 @@ export class Paragraph extends MegaBlock {
         const betweenBlocks = (startBlock && endBlock) && this.children.slice(this.children.indexOf(startBlock) + 1, this.children.indexOf(endBlock)) || [];
 
         const startIndex = this.children.indexOf(startBlock);
-        const ops = [];
+        const ops = this.ops();
 
 
         if (!(endBlock instanceof Linebreak && endBlock.i === this.children.length - 1)) ops.push(...(endBlock ? (endBlock instanceof Text ? endBlock.prepareEdit({
@@ -698,15 +722,16 @@ export class Paragraph extends MegaBlock {
     }
 
     childrenWithoutTrailingLinebreak = $derived(this.children.filter(c => !(c.last && c instanceof Linebreak) ));
+
     values = $derived({
         text: this.childrenWithoutTrailingLinebreak.map(c => c instanceof Text ? c.text : '\n').join(''),
-        json: { type: 'paragraph', children: this.childrenWithoutTrailingLinebreak.map(c => c.values.json) }
+        json: { type: this.type, children: this.childrenWithoutTrailingLinebreak.map(c => c.values.json) }
     })
 
     data() {
         return {
             ...super.data(),
-            type: 'paragraph',
+            type: this.type,
             children: this.childrenWithoutTrailingLinebreak.map(c => c.data())
         };
     }
@@ -733,6 +758,61 @@ export class Paragraph extends MegaBlock {
         } else if (data.type === 'children' && Array.isArray(data.data)) {
             return super.data(data.data, rest);
         }
+    }
+
+    /**
+     * Récupère les données brutes de découpage du paragraphe aux positions spécifiées
+     * @param {{start?: number, end?: number, offset?: number} | SMART} [data=SMART]
+     */
+    getSplittingData = (data) => {
+        if (!data) data = SMART;
+        if (data === SMART) data = { start: this.selection?.start || 0, end: this.selection?.end || this.selection?.start || 0 };
+        else if (data?.offset && (data.start || data.end)) throw new Error('Cannot specify both offset and start/end for split operation.');
+        else if (data?.offset) data = { start: data.offset, end: data.offset };
+        else if (!data?.start && !data?.end) data = { start: 0, end: 0 };
+
+        const { start = 0, end = 0 } = data;
+
+        // Trouver les blocks concernés
+        const startBlock = this.children.find(child => start >= child.start && start <= child.end) || null;
+        const endBlock = this.children.find(child => end >= child.start && end <= child.end) || null;
+
+        // Calculer les indices
+        const startBlockIndex = startBlock ? this.children.indexOf(startBlock) : -1;
+        const endBlockIndex = endBlock ? this.children.indexOf(endBlock) : -1;
+
+        // Déterminer les groupes de blocks
+        const beforeBlocks = startBlock ? this.children.slice(0, startBlockIndex) : [];
+        const middleBlocks = (startBlock && endBlock && startBlockIndex < endBlockIndex)
+            ? this.children.slice(startBlockIndex + 1, endBlockIndex)
+            : [];
+        const afterBlocks = endBlock
+            ? this.children.slice(endBlockIndex + 1).filter(b => !(b instanceof Linebreak && this.children.at(-1) === b))
+            : [];
+
+        // Récupérer les données de découpage des blocks textuels
+        const startSplittingData = startBlock instanceof Text ? startBlock.getSplittingData({
+            from: start - startBlock.start,
+            to: endBlock === startBlock ? end - startBlock.start : startBlock.text.length
+        }) : null;
+
+        const endSplittingData = endBlock instanceof Text ? endBlock.getSplittingData({
+            from: startBlock === endBlock ? start - endBlock.start : 0,
+            to: end - endBlock.start
+        }) : null;
+
+        return {
+            start,
+            end,
+            startBlock,
+            endBlock,
+            beforeBlocks,
+            middleBlocks,
+            afterBlocks,
+            startSplittingData,
+            endSplittingData,
+            totalLength: this.length
+        };
     }
 
 }

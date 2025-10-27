@@ -38,7 +38,7 @@ export class Codex extends MegaBlock {
 
     /**
     * Creates an instance of Codex.
-    * @param {CodexInit & import('./block.svelte').BlockInit} [init] - Initial configuration for the codex.
+    * @param {CodexInit & import('./block.svelte').MegaBlockInit} [init] - Initial configuration for the codex.
     */
     constructor(init = {}) {
         super(null, init);
@@ -193,9 +193,12 @@ export class Codex extends MegaBlock {
                 const parentsTypes = block.parents.map(p => p.type).filter(t => t !== 'codex');
                 const types = [...parentsTypes, block.type].join(':');
                 this.log(`EMIT ${types}:${eventType}`, types);
-                await this.events.emit(`${types}:${eventType}`, { event: e, block });
-                const handler = block[eventType];
-                if (typeof handler === 'function') handler.call(block, e);
+                const event = await this.events.emit(`${types}:${eventType}`, { event: e, block });
+                // @ts-ignore
+                if (!event.get('stopped')) {
+                    const handler = block[eventType];
+                    if (typeof handler === 'function') handler.call(block, e);
+                }                
             } else if (eventType === 'beforeinput') {
                 e.preventDefault();
             }
@@ -326,8 +329,8 @@ export class Codex extends MegaBlock {
         const startBlock = this.children.find(b => b.selected);
         const endBlock = this.children.findLast(b => b.selected);
         return {
-            start: startBlock && startBlock.start + (startBlock.selection ? startBlock.selection.start : 0) || 0,
-            end: endBlock && endBlock.start + (endBlock.selection ? endBlock.selection.end : 0) || 0,
+            start: startBlock && startBlock.start + (startBlock.selection ? (startBlock.selection.start || 0) : 0) || 0,
+            end: endBlock && endBlock.start + (endBlock.selection ? (endBlock.selection.end || 0) : 0) || 0,
         }
     }
 

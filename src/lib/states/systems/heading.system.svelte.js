@@ -1,3 +1,4 @@
+import { Operations } from "$lib/utils/operations.utils";
 import { Paragraph } from "../blocks";
 import { System } from "../system.svelte";
 
@@ -29,7 +30,7 @@ export class HeadingSystem extends System {
                 const level = match[1].length;
                 console.log(`Transforming paragraph to heading level ${level}`);
 
-                const ops = [];
+                const ops = new Operations();
                 ops.push(
                     ...(paragraph.prepareDestroy() || []),
                     ...(this.codex.prepareInsert({
@@ -54,5 +55,9 @@ export class HeadingSystem extends System {
                 });
             }
         });
+
+
+
+        
     }
 }

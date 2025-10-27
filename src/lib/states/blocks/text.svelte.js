@@ -423,13 +423,12 @@ export class Text extends Block {
 
     /** @param {EditData|import('../../utils/operations.utils').SMART} [data=SMART]  */
     prepareEdit = data => {
-        if (!this.codex) return [];
+        const ops = this.ops();
+        if (!this.codex) return ops;
         if (!data) data = SMART;
         const params = this.normalizeEditParams(data);
-        
-        return [
-            new TextEdition(this, params)
-        ];
+        ops.add(new TextEdition(this, params));
+        return ops;
     }
 
     /** @type {import('../../utils/operations.utils').Executor<EditData>} */
@@ -452,7 +451,8 @@ export class Text extends Block {
      * @returns {import('../../utils/operations.utils').Operation[]}
      */
     prepareSplitting = data => {
-        if (!this.codex) return [];
+        const ops = this.ops();
+        if (!this.codex) return ops;
         if (!data) data = SMART;
         if (data === SMART) data = {
             from: this.selection?.start,
@@ -466,12 +466,11 @@ export class Text extends Block {
         if (to < from) to = from;
         const { before, removed, after } = this.getSplittingData({ from, to });
 
-        const ops = [];
         if (removed) {
 
         }
 
-        return [];
+        return ops;
         
     }
 
@@ -483,14 +482,13 @@ export class Text extends Block {
      * }} data 
      */
     prepareStyling = data => {
-        if (!this.codex) return [];
+        const ops = this.ops();
+        if (!this.codex) return ops;
         if (data.from === undefined && data.from !== 0) data.from = SMART;
         if (data.to === undefined) data.to = data.from;
         const from = this.normalizeIndex(typeof data.from === 'number' ? data.from : (this.selection?.start ?? 0));
         const to = this.normalizeIndex(typeof data.to === 'number' ? data.to : (this.selection?.end ?? from));
         const styles = data.styles || {};
-
-        const ops = [];
 
         const fullySelected = (from === 0 && to === this.text.length);
 
