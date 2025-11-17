@@ -3,8 +3,9 @@
  * @property {string} name - The name of the system.
  */
 
-import { Codex } from "./codex.svelte";
-
+/**
+ * @typedef {import('../blocks').Codex} Codex
+ */
 
 /**
  * @callback ExecutorMethod
@@ -14,11 +15,11 @@ import { Codex } from "./codex.svelte";
 export class System {
     /** @type {SystemManifest} */
     static manifest = {
-        name: 'system',
-    }
+        name: "system",
+    };
 
     /**
-     * @param {Codex} codex 
+     * @param {Codex} codex
      */
     constructor(codex) {
         /** @type {Codex} */
@@ -38,7 +39,6 @@ export class System {
          */
         this.methods = new Map();
     }
-
 
     get manifest() {
         return this.constructor.manifest;

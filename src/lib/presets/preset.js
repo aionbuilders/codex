@@ -1,7 +1,7 @@
 /**
  * @typedef {{
  *  name?: string,
- *  blocks?: Array<typeof import('../states/block.svelte').Block>,
+ *  blocks?: Array<typeof import('../blocks/block.svelte').Block>,
  *  systems?: Array<typeof import('../states/system.svelte').System>,
  *  strategies?: Array<import('../states/strategy.svelte').Strategy>,
  *  extends?: Preset,
