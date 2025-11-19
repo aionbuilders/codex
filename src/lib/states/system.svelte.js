@@ -41,7 +41,8 @@ export class System {
     }
 
     get manifest() {
-        return this.constructor.manifest;
+        // @ts-ignore
+        return /** @type {SystemManifest} */ (this.constructor.manifest);
     }
 
     /**

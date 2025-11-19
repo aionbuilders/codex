@@ -140,7 +140,7 @@ export class CodexSelection extends SvelteSelection {
      */
     endBlock = $derived(this.endBlocks.at(-1) || null);
 
-    /** @type {import('./block.svelte').Block[]} */
+    /** @type {import('../blocks/block.svelte').Block[]} */
     blocks = $derived(this.codex?.recursive?.filter((block) => block.selected));
 
     length = $derived(this.blocks.length);
@@ -152,11 +152,11 @@ export class CodexSelection extends SvelteSelection {
     isMultiBlock = $derived(this.startBlock !== this.endBlock);
 
     parent = $derived.by(() => {
-        const start = this.startBlock?.path;
-        const end = this.endBlock?.path;
+        const start = this.startBlock?.path || [];
+        const end = this.endBlock?.path || [];
         const commonIndex = findClosestParentIndex(
-            start?.join("."),
-            end?.join("."),
+            start.join("."),
+            end.join("."),
         );
         const parent =
             commonIndex === -1
@@ -195,18 +195,11 @@ export class CodexSelection extends SvelteSelection {
 
     start = $derived.by(() => {
         const startBlock = this.codex.children.find((b) => b.selected);
-        return (
-            (startBlock?.selection &&
-                startBlock.start + startBlock.selection.start) ||
-            0
-        );
+        return (startBlock?.selection && startBlock.start + (startBlock.selection.start || 0)) || 0
     });
 
     end = $derived.by(() => {
         const endBlock = this.codex.children.findLast((b) => b.selected);
-        return (
-            (endBlock?.selection && endBlock.start + endBlock.selection.end) ||
-            0
-        );
+        return (endBlock?.selection && endBlock.start + (endBlock.selection.end || 0)) || 0
     });
 }

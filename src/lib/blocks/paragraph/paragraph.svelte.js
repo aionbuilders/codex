@@ -190,14 +190,6 @@ export class Paragraph extends MegaBlock {
         const first = selected[0];
         const last = selected[selected.length - 1];
         const selection = this.selection;
-        this.log(
-            "Paragraph onkeydown event",
-            e,
-            "with data:",
-            data,
-            "and selection:",
-            selection,
-        );
 
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
@@ -218,31 +210,13 @@ export class Paragraph extends MegaBlock {
             return;
         }
 
-        if (
-            e.key === "Backspace" &&
-            selection?.isCollapsed &&
-            selection.start === 0
-        ) {
+        if (e.key === "Backspace" && selection?.isCollapsed && selection.start === 0) {
             e.preventDefault();
 
-            
             /** @type {Paragraph|null}  */
             // @ts-ignore
-            const previousMergeable = this.codex.recursive.findLast(
-                (b) => b.capabilities.has(MERGEABLE) && b.index < this.index,
-            ) || null;
-
-            const obj = this.toInit();
-
-            if (previousMergeable && previousMergeable !== this) {
-                previousMergeable.merge(this)?.then(() => {
-                    console.log(
-                        "Merged paragraph into previous block:",
-                        previousMergeable,
-                    );
-                });
-            }
-
+            const previousMergeable = this.codex.recursive.findLast((b) => b.capabilities.has(MERGEABLE) && b.index < this.index ) || null;
+            if (previousMergeable && previousMergeable !== this) previousMergeable.merge(this);
             return;
         }
 
