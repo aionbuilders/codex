@@ -678,6 +678,37 @@ export class MegaBlock extends Block {
     /** @type {T[]} */
     children = $state([]);
 
+    /**
+     * @type {{start?: number, end?: number, isCollapsed: boolean, isInside: boolean} & {} | null | undefined}
+     */
+    selection = $derived.by(() => {
+        const firstChild = this.children.find(child => child.selected);
+        if (!firstChild) return null;
+        const lastChild = this.children.findLast(child => child.selected);
+
+        const firstOffset = firstChild ? this.getSelectionStart(firstChild) : 0;
+        const lastOffset = lastChild ? this.getSelectionEnd(lastChild) : firstOffset;
+        
+        return {
+            start: firstOffset,
+            end: lastOffset,
+            isCollapsed: firstOffset === lastOffset,
+            isInside: !!firstChild,
+        }
+    })
+
+    /** @param {T} firstChild @returns {number} */
+    getSelectionStart(firstChild) {
+        if (!firstChild) return 0;
+        return firstChild.selection?.start ?? 0;
+    }
+
+    /** @param {T} lastChild @returns {number} */
+    getSelectionEnd(lastChild) {
+        if (!lastChild) return 0;
+        return lastChild.selection?.end ?? 0;
+    }
+
     /** @type {Block[]} */
     recursive = $derived.by(() => {
         return this.children.flatMap((child) => {
@@ -704,7 +735,7 @@ export class MegaBlock extends Block {
             offset ??= this.children.length;
             if (offset < 0) offset = this.children.length + offset + 1;
             if (offset < 0) offset = 0;
-            if (offset > this.children.length) offset = this.children.length;
+            // if (offset > this.children.length) offset = this.children.length;
 
             if (data.block && data.blocks)
                 throw new Error(

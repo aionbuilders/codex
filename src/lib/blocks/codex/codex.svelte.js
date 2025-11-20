@@ -54,7 +54,7 @@ export class Codex extends MegaBlock {
 
         /** @type {Object<string, import('svelte').Component>} */
         this.components = init.components || {};
-        this.selection = new CodexSelection(this);
+        this.selection = /** @type {CodexSelection} */ (new CodexSelection(this));
         this.history = new History();
 
         /** @type {Map<string, Block>} */
@@ -123,6 +123,9 @@ export class Codex extends MegaBlock {
 
         this.$init();
     }
+
+    // @ts-ignore
+    selection = /** @type {CodexSelection} */ (null);
 
     get blocks() {
         return /** @type {Array<new (...args: any[]) => Block>} */ ([

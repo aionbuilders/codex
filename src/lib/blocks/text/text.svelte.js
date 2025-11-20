@@ -697,31 +697,7 @@ export class Text extends Block {
         },
     });
 
-    debug = $derived(
-        `${this.signature} (${this.selection?.start}->${this.selection?.end})`,
-    );
-
-    
-    // /**
-    //  * @param {any} 
-    //  * @param {{
-    //  *   text?: string,
-    //  *   styles?: Styles,
-    //  *   id?: string,
-    //  *   metadata?: Object<string, any>
-    //  * } & { [x: string]: any }} [params={}]
-    //  * @returns
-    //  */
-    // static data(data, params = {}) {
-    //     const { text, styles, ...rest } = params;
-
-    //     return {
-    //         ...super.data(rest),
-    //         ...(text !== undefined && { text }),
-    //         ...(styles && { styles }),
-    //     };
-    // }
-
+    debug = $derived(`${this.signature} (${this.selection?.start}->${this.selection?.end})`);
 
     /**
      * @param {{
@@ -736,6 +712,38 @@ export class Text extends Block {
             ...super.data(rest),
             ...data
         }
+    }
+
+    /** @param {import('../block.svelte').MegaBlock} parent */
+    static prepareConsecutiveTextsNormalization(parent) {
+        const ops = parent.ops();
+        const groups = findConsecutiveTextGroupsByStyle(/** @type {(Text)[]} */ (parent.children));
+        if (!groups.length) return ops;
+        groups.forEach((group) => {
+            const texts = group.map((i) => parent.children[i]).filter((c) => c instanceof Text);
+            if (texts.length < 2) return;
+            const first = texts[0];
+            const merging = texts.slice(1).reduce((acc, t) => acc + t.text, "");
+            ops.push(
+                ...first.prepareEdit({
+                    from: -1,
+                    to: -1,
+                    text: merging,
+                }),
+            );
+            ops.push(
+                ...parent.prepareRemove({
+                    ids: texts.slice(1).map((t) => t.id),
+                }),
+            );
+        });
+        return ops;
+    }
+
+    /** @param {import('../block.svelte').MegaBlock} parent */
+    static normalizeConsecutiveTexts(parent) {
+        const ops = Text.prepareConsecutiveTextsNormalization(parent);
+        if (ops.length) parent.codex?.effect(ops);
     }
 }
 
@@ -765,3 +773,60 @@ export class Text extends Block {
 /**
  * @typedef {SplitData} TextActionsData
  */
+
+
+
+/**
+ * Finds consecutive text elements with the same style.
+ * @param {(Text)[]} elements
+ * @returns {Number[][]} - Array of arrays, each containing the indices of consecutive Text elements with the same style.
+ */
+function findConsecutiveTextGroupsByStyle(elements) {
+    const groups = [];
+    /** @type {Number[]} */
+    let currentGroup = [];
+    let currentStyle = null;
+
+    for (let i = 0; i < elements.length; i++) {
+        const element = elements[i];
+
+        // Si c'est un Text
+        if (element instanceof Text) {
+            const elementStyle = element.signature;
+
+            // Si c'est le premier Text ou si le style est différent du précédent
+            if (currentStyle === null || elementStyle !== currentStyle) {
+                // Sauvegarder le groupe précédent s'il contient au moins 2 éléments
+                if (currentGroup.length >= 2) {
+                    groups.push([...currentGroup]);
+                }
+
+                // Commencer un nouveau groupe
+                currentGroup = [i];
+                currentStyle = elementStyle;
+            }
+            // Si le style est le même que le précédent
+            else if (elementStyle === currentStyle) {
+                currentGroup.push(i);
+            }
+        }
+        // Si c'est un Linebreak ou autre chose
+        else {
+            // Sauvegarder le groupe actuel s'il contient au moins 2 éléments
+            if (currentGroup.length >= 2) {
+                groups.push([...currentGroup]);
+            }
+
+            // Réinitialiser pour le prochain groupe
+            currentGroup = [];
+            currentStyle = null;
+        }
+    }
+
+    // Ne pas oublier le dernier groupe
+    if (currentGroup.length >= 2) {
+        groups.push(currentGroup);
+    }
+
+    return groups;
+}

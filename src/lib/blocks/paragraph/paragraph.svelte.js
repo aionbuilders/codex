@@ -1,6 +1,7 @@
 import { Block, MegaBlock } from "../block.svelte";
 import { Linebreak } from "../linebreak/linebreak.svelte";
 import { Text } from "../text/text.svelte";
+import { Link } from "../link/link.svelte";
 import { paragraphStrategies } from "./paragraph.strategies";
 import { BlocksRemoval } from "../block.ops";
 import { SMART, Operation, GETDELTA } from "../../utils/operations.utils";
@@ -37,13 +38,13 @@ import ParagraphC from "./Paragraph.svelte";
  */
 
 /**
- * @extends {MegaBlock<Text|Linebreak>}
+ * @augments MegaBlock<Text|Linebreak>
  */
 export class Paragraph extends MegaBlock {
     /** @type {import("../block.svelte").MegaBlockManifest} */
     static manifest = {
         type: "paragraph",
-        blocks: [Text, Linebreak],
+        blocks: [Text, Linebreak, Link],
         strategies: paragraphStrategies,
         capabilities: [MERGEABLE, INPUTABLE],
         component: ParagraphC,
@@ -96,7 +97,7 @@ export class Paragraph extends MegaBlock {
                     );
                     const selection = this.selection;
                     this.codex?.effect(ops);
-                    if (selection?.isInParagraph)
+                    if (selection?.isInside)
                         this.focus({
                             start: selection.start,
                             end: selection.end,
@@ -111,33 +112,15 @@ export class Paragraph extends MegaBlock {
     /** @type {HTMLParagraphElement?} */
     element = $state(null);
 
-    selection = $derived.by(() => {
-        const firstChild = this.children.find((child) => child.selected);
-        const lastChild = this.children.findLast((child) => child.selected);
+    /**  @type {MegaBlock['getSelectionStart']} */
+    getSelectionStart(firstChild) {
+        return firstChild.start + (firstChild instanceof Text && firstChild.selection?.start ? firstChild.selection?.start : 0);
+    }
 
-        const firstOffset =
-            firstChild &&
-            firstChild.start +
-                (firstChild instanceof Text && firstChild.selection
-                    ? firstChild.selection?.start
-                    : 0);
-        const lastOffset =
-            lastChild &&
-            lastChild.start +
-                (lastChild instanceof Text && lastChild.selection
-                    ? lastChild.selection?.end
-                    : this.codex?.selection.collapsed
-                      ? 0
-                      : 1);
-
-        if (this.selected)
-            return {
-                start: firstOffset,
-                end: lastOffset,
-                isCollapsed: this.codex?.selection.collapsed,
-                isInParagraph: !!firstChild,
-            };
-    });
+    /** @type {MegaBlock['getSelectionEnd']} */
+    getSelectionEnd(lastChild) {
+        return lastChild.start + (lastChild instanceof Text && lastChild.selection?.end ? lastChild.selection?.end : this.codex?.selection.collapsed ? 0 : 1);
+    }
 
     /** @type {Number} */
     length = $derived(
@@ -378,47 +361,8 @@ export class Paragraph extends MegaBlock {
 
     normalize = () => {
         if (!this.codex) return;
-
-        /** @type {Number[][]} */
-        const groups = findConsecutiveTextGroupsByStyle(this.children);
-
-        if (groups.length) {
-            /** @type {Operation[]} */
-            const ops = this.ops();
-            groups.forEach((group) => {
-                const texts = group
-                    .map((i) => this.children[i])
-                    .filter((c) => c instanceof Text);
-                if (texts.length < 2) return;
-                const first = texts[0];
-                const merging = texts
-                    .slice(1)
-                    .reduce((acc, t) => acc + t.text, "");
-                ops.push(
-                    ...first.prepareEdit({
-                        from: -1,
-                        to: -1,
-                        text: merging,
-                    }),
-                );
-                ops.push(
-                    ...this.prepareRemove({
-                        ids: texts.slice(1).map((t) => t.id),
-                    }),
-                );
-            });
-            const selection = this.selection;
-            this.codex.effect(ops);
-        }
-
-        if (this.children.length === 0) {
-            this.children = [new Linebreak(this.codex)];
-        }
-
-        // if (!(this.children.at(-1) instanceof Linebreak)) {
-        //     console.log('Adding linebreak to end of paragraph:', this);
-        //     this.children.push(new Linebreak(this.codex));
-        // }
+        Text.normalizeConsecutiveTexts(this);
+        if (this.children.length === 0) this.children = [new Linebreak(this.codex)];
     };
 
     /**
@@ -442,7 +386,7 @@ export class Paragraph extends MegaBlock {
                         this,
                     );
             }
-        });
+    });
 
     /**
      * @param {Focus} f
@@ -462,13 +406,6 @@ export class Paragraph extends MegaBlock {
             start = 0;
             end = 0;
         }
-        this.log(
-            "Getting focus data for paragraph",
-            this.index,
-            "with normalized range:",
-            { start, end },
-        );
-        this.log("Paragraph children:", this.children);
         const startCandidates = this.children.filter(
             (child) => start >= child.start && start <= child.end,
         );
@@ -957,25 +894,13 @@ export class Paragraph extends MegaBlock {
      * @return {{start: number, end: number}}
      */
     normalizePosition = (position) => {
-        if (position.offset)
-            position = {
-                ...position,
-                start: position.offset,
-                end: position.offset,
-            };
-        position.start = Math.max(
-            0,
-            Math.min(this.length, position.start || 0),
-        );
+        if (position.offset) position = { ...position, start: position.offset, end: position.offset};
+        position.start = Math.max(0,Math.min(this.length, position.start || 0),);
         position.end = Math.max(0, Math.min(this.length, position.end || 0));
-        if (position.start < 0)
-            position.start = this.length + (position.start + 1);
+        if (position.start < 0) position.start = this.length + (position.start + 1);
         if (position.end < 0) position.end = this.length + (position.end + 1);
         if (position.start > position.end) position.start = position.end;
-        return {
-            start: position.start,
-            end: position.end,
-        };
+        return { start: position.start, end: position.end };
     };
 
     snapshot() {
@@ -1133,59 +1058,4 @@ export class Paragraph extends MegaBlock {
             totalLength: this.length,
         };
     };
-}
-
-/**
- * Finds consecutive text elements with the same style.
- * @param {(Text|Linebreak)[]} elements
- * @returns {Number[][]} - Array of arrays, each containing the indices of consecutive Text elements with the same style.
- */
-function findConsecutiveTextGroupsByStyle(elements) {
-    const groups = [];
-    /** @type {Number[]} */
-    let currentGroup = [];
-    let currentStyle = null;
-
-    for (let i = 0; i < elements.length; i++) {
-        const element = elements[i];
-
-        // Si c'est un Text
-        if (element instanceof Text) {
-            const elementStyle = element.signature;
-
-            // Si c'est le premier Text ou si le style est différent du précédent
-            if (currentStyle === null || elementStyle !== currentStyle) {
-                // Sauvegarder le groupe précédent s'il contient au moins 2 éléments
-                if (currentGroup.length >= 2) {
-                    groups.push([...currentGroup]);
-                }
-
-                // Commencer un nouveau groupe
-                currentGroup = [i];
-                currentStyle = elementStyle;
-            }
-            // Si le style est le même que le précédent
-            else if (elementStyle === currentStyle) {
-                currentGroup.push(i);
-            }
-        }
-        // Si c'est un Linebreak ou autre chose
-        else {
-            // Sauvegarder le groupe actuel s'il contient au moins 2 éléments
-            if (currentGroup.length >= 2) {
-                groups.push([...currentGroup]);
-            }
-
-            // Réinitialiser pour le prochain groupe
-            currentGroup = [];
-            currentStyle = null;
-        }
-    }
-
-    // Ne pas oublier le dernier groupe
-    if (currentGroup.length >= 2) {
-        groups.push(currentGroup);
-    }
-
-    return groups;
 }
