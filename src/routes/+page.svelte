@@ -17,13 +17,13 @@
         // Paragraph.data("This is a sample paragraph. You can edit this text, add new blocks, and explore the features of the Codex editor. Enjoy your writing experience!"),
         // List.data()
         Paragraph.data([
-            Text.data("Check out "),
-            // Link.data({type: "json", data: {
-            //     title: "SvelteKit",
-            //     href: "https://kit.svelte.dev",
-            //     children: [Text.data("SvelteKit")]
-            // }}),
-            Text.data(" for building web applications.")
+            Text.data("abc "),
+            Link.data({type: "json", data: {
+                title: "def",
+                href: "https://kit.svelte.dev",
+                children: [Text.data("def")]
+            }}),
+            Text.data(" ghi")
         ])
     ]);
 

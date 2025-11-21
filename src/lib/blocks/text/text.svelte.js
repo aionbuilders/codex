@@ -68,6 +68,7 @@ export class Text extends Block {
         });
 
         this.trine("edit", this.prepareEdit, this.edit, this.applyEdit);
+        this.preparator("remove", this.prepareRemove.bind(this));
 
         this.$init();
     }
@@ -76,6 +77,8 @@ export class Text extends Block {
     element = $state(null);
 
     text = $state("");
+
+    length = $derived(this.text.length);
 
     /** @type {Number} */
     start = $derived(this.before ? (this.before.end ?? 0) : 0);
@@ -136,6 +139,30 @@ export class Text extends Block {
     selectionDebug = $derived(
         `${this.selection ? `Selection: ${this.selection.start} - ${this.selection.end} (${this.selection.length})` : "No selection"}`,
     );
+
+    /** @type {Block['slice']} */
+    slice(params = {}) {
+        const { from = this.selection?.start || 0, to = this.selection?.end ||this.text.length } = params;
+        return {
+            type: "text",
+            before: {
+                type: "text",
+                text: this.text.slice(0, from),
+                styles: this.getStyles(),
+            },
+            between: {
+                type: "text",
+                text: this.text.slice(from, to),
+                styles: this.getStyles(),
+            },
+            after: {
+                type: "text",
+                text: this.text.slice(to),
+                styles: this.getStyles(),
+            }
+        }
+    }
+
 
     /** @type {import('../../utils/block.utils').BlockListener<KeyboardEvent>} */
     onkeydown = (e) => {
@@ -431,6 +458,7 @@ export class Text extends Block {
         const { from, to } = this.normalizeEditParams(data);
 
         return {
+            type: /** @type {"text"} */ ("text"),
             from,
             to,
             limit: this.text.length,
@@ -460,6 +488,32 @@ export class Text extends Block {
         };
     };
 
+    getSplitting() {
+        const {from, to} = this.normalizeEditParams(SMART);
+        return {
+            type: /** @type {"text"} */ ("text"),
+            from,
+            to,
+            limit: this.text.length,
+            before: from > 0 ? {
+                type: /** @type {"text"} */ ("text"),
+                text: this.text.slice(0, from),
+                styles: this.getStyles(),
+            } : null,
+            between: from < to ? { 
+                type: /** @type {"text"} */ ("text"),
+                text: this.text.slice(from, to),
+                styles: this.getStyles(),
+            } : null,
+            after: to < this.text.length ? {
+                type: /** @type {"text"} */ ("text"),
+                text: this.text.slice(to),
+                styles: this.getStyles(),
+            } : null,
+        };
+
+    }
+
     /** @param {EditData|import('../../utils/operations.utils').SMART} [data=SMART]  */
     prepareEdit = (data) => {
         const ops = this.ops();
@@ -481,6 +535,12 @@ export class Text extends Block {
         this.resync();
         this.refresh();
     });
+
+    /** @param {EditData|import('../../utils/operations.utils').SMART} [data=SMART]  */
+    prepareRemove = (data) => this.prepareEdit({
+        ...this.normalizeEditParams(data === SMART ? SMART : {from: data?.from || 0, to: data?.to || 0}),
+        text: "",
+    })
 
     /**
      * @param {{

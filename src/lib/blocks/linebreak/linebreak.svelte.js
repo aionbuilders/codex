@@ -27,6 +27,7 @@ export class Linebreak extends Block {
     /** @type {HTMLBRElement?} */
     element = $state(null);
 
+    length = 1;
     start = $derived(this.before ? (this.before.end ?? 0) : 0);
     end = $derived(this.start + 1);
 

@@ -120,10 +120,10 @@ export class Block {
         this.uuid = crypto.randomUUID();
 
         this.preparator("destroy", this.prepareDestroy.bind(this));
+        this.preparator("remove", this.prepareDestroy.bind(this));
     }
 
     $init() {
-        this.log("Initialisation:", this.in);
         if (this.in?.type === this.manifest.type) this.$in(this.in);
     }
 
@@ -216,10 +216,16 @@ export class Block {
         end: 0,
     });
 
-    start = $derived(0);
-    end = $derived(0);
-
+    
     length = $derived(0);
+
+    /** @type {Number} */
+    start = $derived(this.before ? (this.before.end ?? 0) + 1 : 0);
+
+    /** @type {Number} */
+    end = $derived(this.start + this.length);
+
+    
 
     /**
      * @param {{
@@ -341,12 +347,25 @@ export class Block {
     }
 
     /** @type {Object<string, any>} */
-    values = $derived({
-        json: { type: this.type },
-    });
+    metadata = $state({});
 
     /** @type {Object<string, any>} */
-    metadata = $state({});
+    values = $derived({
+        json: { type: this.type, id: this.id, metadata: this.metadata },
+    });
+    
+
+    /** @abstract */
+    getSplitting() {
+        return { type: this.type };
+    }
+
+    /**
+     * @param {{from?: number, to?: number}} data 
+     */
+    slice(data = {}){
+        return this.values.json;
+    }
 
     /** @param {String} operation */
     supports = (operation) =>
@@ -518,7 +537,7 @@ export class Block {
         return this.constructor.manifest;
     }
 
-    /** @returns {import('../utils/operations.utils').Operation[]} */
+    /** @returns {import('../utils/operations.utils').Operations} */
     prepareDestroy = () => {
         return this.ops(
             this.parent ? this.parent.prepareRemove({ ids: [this.id] }) : [],
@@ -678,6 +697,11 @@ export class MegaBlock extends Block {
     /** @type {T[]} */
     children = $state([]);
 
+    /** @type {Number} */
+    length = $derived(this.children.reduce((acc, child) => acc + child.length, 0));
+
+    
+
     /**
      * @type {{start?: number, end?: number, isCollapsed: boolean, isInside: boolean} & {} | null | undefined}
      */
@@ -724,6 +748,118 @@ export class MegaBlock extends Block {
     /** @param {Block} block */
     contains = (block) => this.recursive.includes(block);
 
+    /**
+     * @param {{from?: number, to?: number}} params 
+     * @returns 
+     */
+    getSplitting(params = {}) {
+        const start = params.from ?? (this.selection?.start || 0);
+        const end = params.to ?? (this.selection?.end || 0);
+        const startBlock = this.children.find(child => start >= child.start && start <= child.end);
+        const endBlock = this.children.find(child => end >= child.start && end <= child.end);
+        const beforeBlocks = this.children.filter(child => child.i < (startBlock?.i || 0));
+        const afterBlocks = this.children.filter(child => child.i > (endBlock?.i || 0));
+        const betweenBlocks = this.children.filter(child => child.i > (startBlock?.i || 0) && child.i < (endBlock?.i || 0));
+
+        /** @param {T} [block] */
+        const obj = (block) => block ? ({ ...block.values.json, id: block.id }) : null;
+        return {
+            type: this.type,
+            from: start,
+            to: end,
+            before: beforeBlocks,
+            start: startBlock,
+            between: betweenBlocks,
+            end: endBlock,
+            after: afterBlocks,
+        }
+    }
+
+    /**
+     * Fonction utilitaire pour cloner un bloc en générant un nouvel ID unique
+     * @param {any} blockJson - Le bloc à cloner au format JSON
+     * @returns {any} - Le bloc cloné avec un nouvel ID
+     */
+    cloneWithNewId(blockJson) {
+        if (!blockJson || typeof blockJson !== 'object') return blockJson;
+        
+        const cloned = JSON.parse(JSON.stringify(blockJson));
+        cloned.id = crypto.randomUUID();
+        
+        // Si c'est un MegaBlock, il faut aussi régénérer les IDs des enfants
+        if (cloned.children && Array.isArray(cloned.children)) {
+            cloned.children = cloned.children.map(child => this.cloneWithNewId(child));
+        }
+        
+        return cloned;
+    }
+
+    /**
+     * @param {{from?: number, to?: number, splitting?: ReturnType<MegaBlock['getSplitting']>}} data
+     */
+    slice(data = {}) {
+        let { from, to } = data.splitting || data;
+        from ??= this.selection?.start || 0;
+        from < 0 && (from = this.length + from);
+        to ??= from;
+        to < 0 && (to = this.length + to);
+        if (to < from) to = from;
+
+        const splitting = data.splitting || this.getSplitting({ from, to });
+        const start = splitting.start?.slice({
+            from: from - splitting.start.start,
+            to: (splitting.start !== splitting.end ? from : to) - splitting.start.start,
+        })
+
+        const end = splitting.end?.slice({
+            from: (splitting.start !== splitting.end ? to - splitting.end.start : from - splitting.end.start),
+            to: to - splitting.end.start,
+        })
+
+        const before = [
+            ...splitting.before.map(b => this.cloneWithNewId(b.values.json)),
+            ...(start ? [start.before] : []),
+        ]
+
+        const between = splitting.start === splitting.end ? [start.between] : [
+            ...(start ? [start.after] : []),
+            ...splitting.between.map(b => this.cloneWithNewId(b.values.json)),
+            ...(end ? [end.before] : []),
+        ]
+
+        const after = [
+            ...(end ? [end.after] : []),
+            ...splitting.after.map(b => this.cloneWithNewId(b.values.json)),
+        ]
+
+        // Extraire l'ID original avant de modifier l'objet local
+        const { id: originalId, ...localWithoutId } = this.values.json;
+
+        return {
+            // ...super.slice(),
+            before: {
+                ...localWithoutId,
+                originalId, // Conserver la référence à l'ID d'origine
+                children: before,
+            },
+            between: {
+                ...localWithoutId,
+                originalId, // Conserver la référence à l'ID d'origine
+                children: between,
+            },
+            after: {
+                ...localWithoutId,
+                originalId, // Conserver la référence à l'ID d'origine
+                children: after,
+            },
+        }
+
+
+
+
+        
+    }
+
     // PREPARATORS
 
     prepareInsert = preparer(
@@ -742,8 +878,7 @@ export class MegaBlock extends Block {
                     'Cannot insert both "block" and "blocks" at the same time.',
                 );
             if (data.block) data.blocks = [data.block];
-            if (!data.blocks || !data.blocks.length)
-                throw new Error("No blocks to insert.");
+            if (!data.blocks || !data.blocks.length) return this.ops();
 
             return this.ops(
                 new BlocksInsertion(this, {
@@ -756,18 +891,63 @@ export class MegaBlock extends Block {
 
     /**
      *
-     * @param {import('./block.ops').BlocksRemovalData & { id?: string }} data
+     * @param {import('./block.ops').BlocksRemovalData & { id?: string, from?: number, to?: number }} data
      */
     prepareRemove(data) {
-        let { id, ids } = data;
+        let { id, ids = [] } = data;
 
-        if (id && ids)
+        if (id && ids.length)
             throw new Error(
                 'Cannot sdow brier provide both "id" and "ids" to remove blocks.',
             );
         if (id) ids = [id];
-        if (!ids || !ids.length) return this.ops();
-        return this.ops(new BlocksRemoval(this, { ids }));
+        
+        const ops = this.ops();
+
+        if (data.from) {
+            let { from, to } = data;
+            if (from < 0) from = Math.max(0, this.end + from + 1);
+            to ??= from;
+            if (to < 0) to = Math.max(0, this.end + to + 1);
+            if (to < from) to = from;
+
+            const startBlock = this.children.find((child) => from >= child.start && from <= child.end);
+            const endBlock = this.children.find((child) => to >= child.start && to <= child.end);
+
+            const fromIndex = startBlock ? startBlock.i : this.children.length;
+            const toIndex = endBlock ? endBlock.i : fromIndex;
+
+            this.log({fromIndex, toIndex});
+            const blocksBetween = this.children.slice(fromIndex, toIndex);
+            this.log("Preparing removal from", from, "to", to, {
+                startBlock,
+                endBlock,
+                blocksBetween,
+            });
+            
+            startBlock && startBlock.prepare("remove", {
+                from: from - startBlock.start,
+                to: (startBlock !== endBlock ? startBlock.length : to - startBlock.start),
+            }).map(op => op instanceof BlocksRemoval ? ids = [...ids, ...(op.data.ids || [])] : ops.add(op));
+
+            endBlock && endBlock !== startBlock && endBlock.prepare("remove", {
+                from: 0,
+                to: to - endBlock.start,
+            }).map(op => op instanceof BlocksRemoval ? ids = [...ids, ...(op.data.ids || [])] : ops.add(op));            
+
+            ids = [
+                ...(ids || []),
+                ...blocksBetween.map((b) => b.id),
+            ];
+        }
+
+
+        if (ids.length) ops.add(new BlocksRemoval(this, { ids }));
+
+        this.log("Prepared removal ops:", ops);
+        return ops;
+        // if (!ids || !ids.length) return this.ops();
+        // return this.ops(new BlocksRemoval(this, { ids }));
     }
 
     /**

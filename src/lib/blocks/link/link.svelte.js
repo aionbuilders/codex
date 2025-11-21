@@ -1,4 +1,5 @@
-import { text } from "@sveltejs/kit";
+import { SMART } from "$lib/utils/operations.utils";
+import { untrack } from "svelte";
 import { MegaBlock } from "..";
 import { Linebreak } from "../linebreak/linebreak.svelte";
 import { Text } from "../text/text.svelte";
@@ -43,6 +44,12 @@ export class Link extends MegaBlock {
         
         this.href = init.href || "";
         this.title = init.title || "";
+
+        $effect.root(() => {
+            $effect(() => {
+                if (this.children) untrack(() => this.normalize());
+            })
+        })
     }
     
     element = $state(/** @type {HTMLAnchorElement|null} */ (null));
@@ -58,10 +65,12 @@ export class Link extends MegaBlock {
     }, 0));
     
     /** @type {Number} */
-    start = $derived(this.before ? (this.before?.end ?? 0) + 1 : 0);
+    start = $derived(this.before ? (this.before?.end ?? 0) : 0);
     
     /** @type {Number} */
     end = $derived(this.start + this.length);
+
+    text = $derived(this.children.map(child => child instanceof Linebreak ? '\n' : child.text ? child.text : '').join(''));
     
     // SELECTION : 
 
@@ -77,11 +86,41 @@ export class Link extends MegaBlock {
 
     // EVENTS :
 
-    onbeforeinput = e => {
+    /** @type {import('../../utils/block.utils').BlockListener<InputEvent>} */
+    onbeforeinput = (e) => {
+        if (e.inputType === "insertText" && e.data) {
+            const selection = this.selection;
+            if (!selection) return;
+            if (
+                this.selection?.isCollapsed &&
+                this.children.find((child) => child.selected) instanceof
+                    Linebreak
+            ) {
+                const selected = this.children.find((c) => c.selected);
+                const index = this.children.findIndex((c) => c === selected);
+                const tx = this.codex?.tx([
+                    ...this.prepareInsert({
+                        offset: index,
+                        blocks: [{ type: "text", init: { text: e.data } }],
+                    }),
+                ]);
+                tx?.execute().then((tx) => {
+                    if (selection.start === undefined) return;
+                    console.log("Refocusing at offset:", selection.start + 1);
+                    tx.focus({
+                        start: selection.start + 1,
+                        end: selection.start + 1,
+                        block: this,
+                    });
+                });
+            }
+        }
+    };
 
-    }
-
+    /** @type {import('../../utils/block.utils').BlockListener<KeyboardEvent>} */
     onkeydown = (e, data) => {
+        console.clear();
+        this.log("KEYDOWNED:", e, data);
         if (!this.selection) return;
         if ((e.key === "Enter" && e.shiftKey) && data?.action === "split") {
             e.preventDefault();
@@ -108,14 +147,25 @@ export class Link extends MegaBlock {
             })
         } else if (data?.action === "nibble") {
             const { block, what } = /** @type {{block: Text, what: 'previous'|'next'}} */ (data);
-            const offset = what === "previous" ? block.start - 1 : block.end;
-            const blockIndex = $state.snapshot(block.i);
-            const target = what === "previous" ? this.codex?.selection.start === 0 ? this.before : this.children[blockIndex - 1] : this.children[blockIndex + 1];
+            const previous = what === "previous";
+            const offset = previous ? block.start - 1 : block.end;
+            const blockIndex = block.i;
+            const target = previous ? this.selection.start === 0 ? this.before : this.children[blockIndex - 1] : this.children[blockIndex + 1];
+            this.log("Nibble target:", target);
+            if (this.selection.start === 0 && what === "previous") return this.ascend(e, {
+                action: "nibble",
+                block: this,
+                what: "previous"
+            }); else if (this.selection.end === this.length && what === "next") return this.ascend(e, {
+                action: "nibble",
+                block: this,
+                what: "next"
+            });
             const ops = this.ops();
             if (!target) return;
             if (target instanceof Text) ops.push(...target.prepare("edit", {
-                from: -2,
-                to: -1,
+                from: previous ? -2 : 0,
+                to: previous ? -1 : 1,
             })) 
             else if (target instanceof Linebreak) ops.push(...target.prepareDestroy());
             this.codex?.tx(ops).execute().then(tx => tx.focus({ start: offset, end: offset, block: this }));
@@ -130,10 +180,68 @@ export class Link extends MegaBlock {
             this.codex?.tx(ops).execute().then(tx => {
                 tx.focus({start: selection.start, end: selection.start, block: this})
             })
-        } else {
-            console.log("Keydown in Link block:", e.key, data);
-        }
+        } else if (e.key === "Enter" && !e.shiftKey) return this.ascend(e);
     }
+
+    // METHODS :
+
+    normalize = () => {
+        if (!this.codex) return;
+        this.log("Normalizing link", this.index);
+        Text.normalizeConsecutiveTexts(this);
+    }
+
+    /**
+    * Récupère les données brutes de découpage du paragraphe aux positions spécifiées
+    * @param {{start?: number, end?: number, offset?: number} | SMART} [data=SMART]
+    */
+    getSplittingData = (data) => {
+        // === 1.  Normalisation des paramètres ===
+        if (!data) data = SMART;
+        if (data === SMART) data = { start: this.selection?.start || 0, end: this.selection?.end || this.selection?.start || 0 };
+        else if (data?.offset && (data.start || data.end)) throw new Error("Cannot specify both offset and start/end for split operation.");
+        else if (data?.offset) data = { start: data.offset, end: data.offset };
+        else if (!data?.start && !data?.end) data = { start: 0, end: 0 };
+        const { start = 0, end = 0 } = data;
+        
+        // Trouver les blocks concernés
+        const startBlock = this.children.find((child) => start >= child.start && start <= child.end) || null;
+        const endBlock = this.children.find((child) => end >= child.start && end <= child.end) || null;
+        
+        // Calculer les indices
+        const startBlockIndex = startBlock ? this.children.indexOf(startBlock) : -1;
+        const endBlockIndex = endBlock ? this.children.indexOf(endBlock) : -1;
+        
+        // Déterminer les groupes de blocks
+        const beforeBlocks = startBlock ? this.children.slice(0, startBlockIndex) : [];
+        const middleBlocks = startBlock && endBlock && startBlockIndex < endBlockIndex ? this.children.slice(startBlockIndex + 1, endBlockIndex) : [];
+        const afterBlocks = endBlock ? this.children.slice(endBlockIndex + 1).filter((b) => !(b instanceof Linebreak && this.children.at(-1) === b)) : [];
+        
+        // Récupérer les données de découpage des blocks textuels
+        const startSplittingData = startBlock instanceof Text ? startBlock.getSplittingData({
+            from: start - startBlock.start, 
+            to: endBlock === startBlock ? end - startBlock.start : startBlock.text.length 
+        }) : null;
+        
+        const endSplittingData = endBlock instanceof Text ? endBlock.getSplittingData({
+            from: startBlock === endBlock ? start - endBlock.start : 0,
+            to: end - endBlock.start,
+        }) : null;
+        
+        return {
+            type: /** @type {"link"} */ ("link"),
+            start,
+            end,
+            startBlock,
+            endBlock,
+            beforeBlocks,
+            middleBlocks,
+            afterBlocks,
+            startSplittingData,
+            endSplittingData,
+            totalLength: this.length,
+        };
+    };
 
 
     /**
@@ -231,6 +339,18 @@ export class Link extends MegaBlock {
         }
     };
 
+    debug = $derived(
+        `${this.selection?.start} - ${this.selection?.end} [s: ${this.start}, e: ${this.end}, length: ${this.length}]`,
+    );
+
+    values = $derived({
+        json: {
+            ...super.values.json,
+            href: this.href,
+            title: this.title,
+        }
+    })
+
     /**
     * @typedef {{ type: 'text', data: string }|string} TextDataType
     * @typedef {{ type: 'json', data: {children: Array<any>, href?: string, title?: string} }} JsonDataType
@@ -287,5 +407,40 @@ export class Link extends MegaBlock {
         }
         
         return super.data([], rest);
+    }
+
+
+    /** @param {import('../block.svelte').MegaBlock} parent */
+    static prepareConsecutiveLinksNormalization(parent) {
+        const ops = parent.ops();
+        const groups = parent.children.reduce((acc, child, i) => {
+            const previous = parent.children[i - 1];
+            const lastGroup = acc[acc.length - 1] || [];
+            if (child instanceof Link && previous instanceof Link && child.href === previous.href && child.title === previous.title) {
+                if (lastGroup.includes(previous)) lastGroup.push(child);
+                else acc.push([previous, child]);
+            }
+            return acc;
+        }, /** @type {Array<Array<Link>>} */ ([]));
+        parent.log("Found link groups for normalization:", groups);
+
+        groups.forEach(group => {
+            if (group.length < 2) return;
+            const [first, ...rest] = group;
+            ops.add(first.prepare("insert", {
+                offset: -1,
+                blocks: rest.flatMap(link => link.children.map(child => child.values.json))
+            }));
+            ops.add(...parent.prepareRemove({
+                ids: rest.map(link => link.id)
+            }));
+        });
+        return ops;
+    }
+
+    /** @param {import('../block.svelte').MegaBlock} parent */
+    static normalizeConsecutiveLinks(parent) {
+        const ops = Link.prepareConsecutiveLinksNormalization(parent);
+        if (ops.length) parent.codex?.effect(ops);
     }
 }
