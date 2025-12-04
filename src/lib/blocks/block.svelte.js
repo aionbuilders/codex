@@ -89,7 +89,7 @@ export class Block {
         this.codex = codex;
         this.id = init.id || crypto.randomUUID();
         this.metadata = init.metadata || {};
-        this.in = init.in || {};
+        this.in = init.in || init;
 
         /**
          * A set of methods available on the block.
@@ -124,6 +124,7 @@ export class Block {
     }
 
     $init() {
+        // this.log("Initializing block with in data:", this.in);
         if (this.in?.type === this.manifest.type) this.$in(this.in);
     }
 
@@ -374,7 +375,6 @@ export class Block {
 
     /** @param {Event} event @param {...any} args */
     ascend(event, ...args) {
-        this.log("Ascending event", event, "with args:", args);
         if (!this.codex) return;
         if (this.parents.length && event instanceof Event) {
             const eventType = event.type;
@@ -383,14 +383,10 @@ export class Block {
                 (parent) => typeof parent[`on${eventType}`] === "function",
             );
             if (callableParent) {
-                this.log(
-                    `Ascending event "${eventType}" to parent "${callableParent.type}"`,
-                );
                 const parentsTypes = callableParent.parents
                     .map((p) => p.type)
                     .filter((t) => t !== "codex");
                 const types = [...parentsTypes, callableParent.type].join(":");
-                this.log(`EMIT ${types}:${eventType}`, types);
                 this.codex.events
                     .emit(`${types}:${eventType}`, {
                         event,
@@ -468,10 +464,7 @@ export class Block {
      */
     prepare = (name, data, metadata) => {
         const preparator = this.preparators.get(name);
-        if (!preparator)
-            throw new Error(
-                `No preparator found for "${name}" in block "${this.type}".`,
-            );
+        if (!preparator) throw new Error(`No preparator found for "${name}" in block "${this.type}".`);
         const preparation = preparator(data);
         if (!preparation) return [];
         return preparation.map((o) => {
@@ -615,10 +608,6 @@ export class MegaBlock extends Block {
         super(codex, init);
 
         if (init?.children) {
-            console.log(
-                "Initializing mega block with children:",
-                init.children,
-            );
             this.children = init.children.map((child) => {
                 const B = this.blocks.find(
                     (B) => B.manifest.type === child.type,

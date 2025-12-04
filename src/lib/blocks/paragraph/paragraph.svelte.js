@@ -55,7 +55,9 @@ export class Paragraph extends MegaBlock {
      * @param {ParagraphInit} [init]
      */
     constructor(codex, init = {}) {
+        
         super(codex, init);
+        this.log({init});
 
         this.preparator("merge", this.prepareMerge.bind(this));
         this.preparator("split", this.prepareSplit.bind(this));
@@ -159,7 +161,6 @@ export class Paragraph extends MegaBlock {
                 ]);
                 tx?.execute().then((tx) => {
                     if (selection.start === undefined) return;
-                    console.log("Refocusing at offset:", selection.start + 1);
                     tx.focus({
                         start: selection.start + 1,
                         end: selection.start + 1,
@@ -172,7 +173,6 @@ export class Paragraph extends MegaBlock {
 
     /** @type {import('../../utils/block.utils').BlockListener<KeyboardEvent>} */
     onkeydown(e, data) {
-        this.log("KEYDOWNED:", e, data);
         if (!this.codex) return;
         const selected = this.children?.filter((c) => c.selected);
         const first = selected[0];
@@ -204,7 +204,6 @@ export class Paragraph extends MegaBlock {
         }
 
         if (data) {
-            this.log("Handling onkeydown with data:", data);
             if (!this.selection) return;
             if (data?.action === "delete") {
                 /** @type {{block: Text, key: String}} */
@@ -217,9 +216,7 @@ export class Paragraph extends MegaBlock {
                         ...this.prepareRemove({ ids: [block.id] }),
                     ]);
                     tx.execute().then(() => {
-                        const offset =
-                            key === "Backspace" ? selection.start : selection.start;
-                        this.log("Refocusing at offset:", offset);
+                        const offset = key === "Backspace" ? selection.start : selection.start;
                         tx.focus({ start: offset, end: offset, block: this });
                     });
                     return;
@@ -354,7 +351,6 @@ export class Paragraph extends MegaBlock {
 
     normalize = () => {
         if (!this.codex) return;
-        this.log("Normalizing paragraph", this.index);
         Text.normalizeConsecutiveTexts(this);
         Link.normalizeConsecutiveLinks(this);
         if (this.children.length === 0) this.children = [new Linebreak(this.codex)];

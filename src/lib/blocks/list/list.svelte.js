@@ -449,7 +449,6 @@ class ListItem extends MegaBlock {
             ...(init.sublist ? [{ ...init.sublist, type: "list" }] : []),
         ];
         super(codex, init);
-        this.log("Initializing ListItem with children:", init);
 
         $effect.root(() => {
             $effect(() => {

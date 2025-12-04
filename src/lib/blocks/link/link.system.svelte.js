@@ -1,4 +1,4 @@
-import { System } from "$lib/states/system.svelte";
+import { System } from "../../states/system.svelte";
 import { Text } from "../text/text.svelte";
 import {Link} from "./link.svelte.js";
 

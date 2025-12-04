@@ -1,4 +1,4 @@
-import { LinkSystem } from "$lib/blocks/link/link.system.svelte";
+import { LinkSystem } from "../../blocks/link/link.system.svelte";
 import { Paragraph } from "../../blocks";
 import { DataTransformSystem } from "../../blocks/codex/codex.system.svelte";
 import { ParagraphSystem } from "../../blocks/paragraph/paragraph.system.svelte";

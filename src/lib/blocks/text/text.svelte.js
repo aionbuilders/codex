@@ -53,18 +53,16 @@ export class Text extends Block {
     constructor(codex, init = {}) {
         super(codex, init);
 
-        this.text = init.text || "";
-        this.styles = init.styles || {};
-
         $effect.root(() => {
             $effect(() => {
                 this.element &&
-                    untrack(() => {
-                        if (this.element) {
-                            this.element.textContent = this.text;
-                        }
-                    });
+                untrack(() => {
+                    if (!this.element) return;
+                    this.element.textContent = this.text;
+                });
             });
+
+            $inspect(this.selection).with(console.trace);
         });
 
         this.trine("edit", this.prepareEdit, this.edit, this.applyEdit);
@@ -110,6 +108,7 @@ export class Text extends Block {
     });
 
     selection = $derived.by(() => {
+
         const range = this.codex?.selection.range;
         if (this.selected && range && this.element) {
             const localrange = range.cloneRange();
@@ -166,6 +165,7 @@ export class Text extends Block {
 
     /** @type {import('../../utils/block.utils').BlockListener<KeyboardEvent>} */
     onkeydown = (e) => {
+        console.log("Text block keydown:", e.key);
         if (e.key === "Enter") {
             e.preventDefault();
             return this.ascend(e, {
@@ -236,31 +236,43 @@ export class Text extends Block {
                 to,
             }).then((tx) => tx.focus({ start: from, end: from, block: this }));
         }
+
+        console.log("After keydown handling.");
+
     };
 
     /** @type {import('../../utils/block.utils').BlockListener<InputEvent>} */
     oninput = (e) => {
-        this.refresh();
+        // this.refresh();
     };
 
     onfocus = () => {};
 
+    
     /** @type {import('../../utils/block.utils').BlockListener<InputEvent>} */
     onbeforeinput = (e) => {
+        const date = performance.now();
         if (e.inputType === "insertText" && e.data) {
+            console.time(`${date}`);
             let { start, end } = this.selection || {};
+            console.group(`Start typing "${e.data}" at ${start}`);
             start ??= this.text.length;
-            this.edit({
+            const ops = this.ops(this.prepare('edit', {
                 text: e.data,
                 from: start,
                 to: end,
-            }).then((tx) =>
+            }))
+            this.codex?.tx(ops).execute().then(tx => {
+                console.timeStamp(`Asking refocus ${date}`);
                 tx.focus({
                     start: (start ?? this.text.length) + (e.data?.length || 0),
                     end: (start ?? this.text.length) + (e.data?.length || 0),
                     block: this,
-                }),
-            );
+                }, { id: date });
+            }).finally(() => {
+                console.groupEnd();
+                console.timeEnd(`${date}`);
+            })
             e.preventDefault();
         }
     };
@@ -281,24 +293,22 @@ export class Text extends Block {
      * @param {Focus} f
      * @returns
      */
-    focus = (f) =>
-        requestAnimationFrame(() => {
-            if (this.element) {
-                const data = this.getFocusData(f);
-                if (data) {
-                    this.codex?.selection?.setRange(
-                        data.startElement,
-                        data.startOffset,
-                        data.endElement,
-                        data.endOffset,
-                    );
-                    return true;
-                } else
-                    return console.warn(
-                        "Text focus data is not available yet.",
-                    );
-            }
-        });
+    focus = (f) => () => {
+        if (!this.element) return;
+        const data = this.getFocusData(f);
+        if (data) {
+            this.codex?.selection?.setRange(
+                data.startElement,
+                data.startOffset,
+                data.endElement,
+                data.endOffset,
+            );
+            return true;
+        } else
+            return console.warn(
+            "Text focus data is not available yet.",
+        );
+    }
 
     /**
      * @param {Focus} f
@@ -720,8 +730,7 @@ export class Text extends Block {
      */
     $in(data) {
         data.text && (this.text = data.text);
-        data.styles &&
-            Object.entries(data.styles).forEach(([key, value]) => {
+        data.styles && Object.entries(data.styles).forEach(([key, value]) => {
                 key = key.toLowerCase();
                 if (
                     [
@@ -745,7 +754,7 @@ export class Text extends Block {
                         return;
                     this.styles[key] = value;
                 }
-            });
+        });
     }
 
     values = $derived({

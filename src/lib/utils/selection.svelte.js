@@ -510,10 +510,11 @@ export class SvelteSelection {
                     if (relevantMutations.length === 0) return;
                     
                     // Debounce pour éviter trop d'appels
-                    clearTimeout(this.#debounceTimer);
-                    this.#debounceTimer = setTimeout(() => {
-                        this.#updateSelection();
-                    }, debounceMs);
+                    this.#updateSelection();
+                    // clearTimeout(this.#debounceTimer);
+                    // this.#debounceTimer = setTimeout(() => {
+                    //    this.#updateSelection();
+                    // }, debounceMs);
                 });
             }
             

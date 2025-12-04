@@ -1,4 +1,4 @@
-import { SMART } from "$lib/utils/operations.utils";
+import { SMART } from "../../utils/operations.utils";
 import { untrack } from "svelte";
 import { MegaBlock } from "..";
 import { Linebreak } from "../linebreak/linebreak.svelte";
@@ -40,16 +40,26 @@ export class Link extends MegaBlock {
         super(codex, init);
         
         this.$init();
-        this.log("Creating Link block with init:", init, this.children);
         
-        this.href = init.href || "";
-        this.title = init.title || "";
+        // this.href = init.href || "";
+        // this.title = init.title || "";
 
         $effect.root(() => {
             $effect(() => {
                 if (this.children) untrack(() => this.normalize());
+                
             })
         })
+    }
+
+    /**
+     * 
+     * @param {{href: string, title?: string}} data 
+     */
+    $in(data) {
+        super.$in(data);
+        if (data.href) this.href = data.href;
+        if (data.title) this.title = data.title;
     }
     
     element = $state(/** @type {HTMLAnchorElement|null} */ (null));
@@ -106,7 +116,6 @@ export class Link extends MegaBlock {
                 ]);
                 tx?.execute().then((tx) => {
                     if (selection.start === undefined) return;
-                    console.log("Refocusing at offset:", selection.start + 1);
                     tx.focus({
                         start: selection.start + 1,
                         end: selection.start + 1,
@@ -120,8 +129,19 @@ export class Link extends MegaBlock {
     /** @type {import('../../utils/block.utils').BlockListener<KeyboardEvent>} */
     onkeydown = (e, data) => {
         console.clear();
-        this.log("KEYDOWNED:", e, data);
         if (!this.selection) return;
+        
+        // NOUVEAU : Gestion de la sortie du Link
+        if (e.key === "Escape" && !this.hasModifiers(e)) {
+            e.preventDefault();
+            return this.transformOut();
+        }
+        
+        if (e.ctrlKey && e.shiftKey && e.key === " ") {
+            e.preventDefault();
+            return this.transformOut();
+        }
+        
         if ((e.key === "Enter" && e.shiftKey) && data?.action === "split") {
             e.preventDefault();
             const { block, editData, newTextData} = /** @type {import("../text/text.svelte").SplitData} */ (data);
@@ -181,13 +201,133 @@ export class Link extends MegaBlock {
                 tx.focus({start: selection.start, end: selection.start, block: this})
             })
         } else if (e.key === "Enter" && !e.shiftKey) return this.ascend(e);
-    }
+        }
+        
+        /**
+         * Transforme le Link en Text avec format markdown
+         */
+        transformOut = () => {
+            if (!this.parent || !this.codex) return;
+            const selection = this.selection;
+            const {start, end} = this;
+            
+            const tx = this.codex?.tx(this.prepareTransformOut());
+            tx?.execute().then(tx => {
+                const op = tx.operations.find(op => op.metadata?.replace === true);
+                if (!op) return;
+                const newBlock = /** @type {Text} */ (op.results[0]);
+                console.log(newBlock.element);
+                if (newBlock) {
+
+                    tx.focus({
+                        start: op.metadata.offset,
+                        end: op.metadata.offset,
+                        block: newBlock.parent
+                    });
+                }
+            });
+        };
+    
+        /**
+         * Prépare les opérations pour transformer le Link en Text
+         */
+        prepareTransformOut = () => {
+            const ops = this.ops();
+            const markdownText = this.toMarkdown();
+            this.log("Transforming Link to Text with markdown:", markdownText);
+            const currentIndex = this.i;
+            if (!this.parent) return ops;
+            
+
+            ops.add(this.prepare('destroy'));
+            ops.add(this.parent.prepare('insert', {
+                block: {
+                    type: "text",
+                    text: markdownText,
+                },
+                offset: currentIndex,
+            }, {
+                replace: true,
+                selection: $state.snapshot(this.selection),
+                offset: $state.snapshot(this.start) + ($state.snapshot(this.selection?.start) || 0) + 1,
+            }));
+            
+            return ops;
+        };
+    
+        /**
+         * Génère le markdown du Link
+         */
+        toMarkdown = () => {
+            const text = this.text;
+            const href = this.href;
+            const title = this.title;
+            
+            // Cas spécial : Link sans URL valide
+            if (!href || href.trim() === '') {
+                return text;
+            }
+            
+            // Format markdown standard
+            if (title && title.trim() !== '') {
+                return `[${text}](${href} "${title}")`;
+            } else {
+                return `[${text}](${href})`;
+            }
+        };
+    
+        /**
+         * Hérite les styles du contexte parent
+         */
+        inheritStylesFromContext = () => {
+            // Si le Link est dans un Paragraph, hériter des styles environnants
+            if (this.parent) {
+                const previousText = this.children[this.i - 1];
+                const nextText = this.children[this.i + 1];
+                
+                // Stratégie : hériter du Text le plus proche avec styles
+                if (previousText instanceof Text && this.textHasStyles(previousText)) {
+                    return previousText.styles;
+                }
+                if (nextText instanceof Text && this.textHasStyles(nextText)) {
+                    return nextText.styles;
+                }
+            }
+            return {};
+        };
+    
+        /**
+         * Vérifie si un Text a des styles appliqués
+         */
+        textHasStyles = (text) => {
+            if (!text || !text.styles) return false;
+            return Object.values(text.styles).some(style => style === true);
+        };
+    
+        /**
+         * Échappe les caractères spéciaux pour markdown
+         */
+        escapeMarkdownUrl = (url) => {
+            if (!url) return '';
+            return url
+                .replace(/\(/g, '\\(')
+                .replace(/\)/g, '\\)')
+                .replace(/ /g, '%20')
+                .replace(/"/g, '\\"');
+        };
+    
+        /**
+         * Vérifie la présence de modificateurs clavier
+         */
+        hasModifiers = (e) => {
+            if (!e) return false;
+            return e.ctrlKey || e.shiftKey || e.altKey || e.metaKey;
+        };
 
     // METHODS :
 
     normalize = () => {
         if (!this.codex) return;
-        this.log("Normalizing link", this.index);
         Text.normalizeConsecutiveTexts(this);
     }
 
@@ -345,7 +485,8 @@ export class Link extends MegaBlock {
 
     values = $derived({
         json: {
-            ...super.values.json,
+            type: "link",
+            children: this.children.map(child => child.values.json),
             href: this.href,
             title: this.title,
         }
@@ -422,7 +563,6 @@ export class Link extends MegaBlock {
             }
             return acc;
         }, /** @type {Array<Array<Link>>} */ ([]));
-        parent.log("Found link groups for normalization:", groups);
 
         groups.forEach(group => {
             if (group.length < 2) return;

@@ -153,13 +153,9 @@ export class Transaction {
         try {
             if (redoing) {
                 if (this.undone) this.undone.undo();
-
-                // for (const op of this.executed) op.execute();
-                // if (this.selectionAfter) this.codex?.focus(this.selectionAfter);
             } else {
                 for (const op of this.operations) op.execute(this);
-                for (const after of this.afters)
-                    after(this).forEach((op) => op.execute(this));
+                for (const after of this.afters) after(this).forEach((op) => op.execute(this));
                 await tick().then(() => this.commit());
             }
 
@@ -235,8 +231,8 @@ export class Transaction {
         this.execute(true).catch(console.error);
     }
 
-    /** @param {Focus} f */
-    focus = (f) => this.codex?.focus(f, { tx: this });
+    /** @param {Focus} f @param {Object} [options] */
+    focus = (f, options) => this.codex?.focus(f, { tx: this, ...options });
 
     toJSON() {
         return {

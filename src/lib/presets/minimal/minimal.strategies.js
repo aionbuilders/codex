@@ -6,7 +6,7 @@
 import { Text } from "../../blocks";
 import { Strategy } from "../../states/strategy.svelte";
 import { TextStyling } from "../../blocks/text/text.ops";
-import { Operations } from "$lib/utils/operations.utils";
+import { Operations } from "../../utils/operations.utils";
 
 export const textStyleStrategy = new Strategy(
     '@codex/text-style',
@@ -69,13 +69,7 @@ export const textStyleStrategy = new Strategy(
 
         codex.tx(ops).execute().then(tx => {
             if (tx.selectionBefore) tx.focus(tx.selectionBefore);
-            
         })
-        
-
-
-
-
 
     }
 ).tag('@codex').tag('text-style').tag('keydown')

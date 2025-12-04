@@ -1,0 +1,165 @@
+# Codex Editor Roadmap
+
+version: "1.0.0-alpha.3"
+last_updated: "2025-12-04"
+
+# État actuel : Éditeur block-based fonctionnel à ~90%
+# Focus : "All in keyboard" - Navigation et édition complètes
+
+now:
+  # Tâches en cours / Priorité HAUTE
+  - id: copy-paste-implementation
+    title: "Finaliser Copy/Paste - Connecter DataTransformSystem au clipboard"
+    priority: "high"
+    status: "in-progress"
+    notes: "Système DataTransformSystem existe mais non connecté au clipboard natif. C'est le seul manque critique qui empêche l'expérience 'all in keyboard'."
+    blocked_by: "clipboard-integration"
+
+next:
+  # Prochaines étapes logiques (Priorité MOYENNE)
+  - id: link-editing-ui
+    title: "UI d'édition Link - Modal href/title"
+    priority: "medium"
+    status: "planned"
+    notes: "Link transformOut est résolu mais UI d'édition manquante. Modal pour modifier href/title avec validation d'URLs."
+    depends_on: "copy-paste-implementation"
+  
+  - id: multi-block-selection-fixes
+    title: "Stabiliser Sélection Multi-Blocks"
+    priority: "medium"
+    status: "planned"
+    notes: "Détection OK mais opérations buggées. Corriger les suppressions multi-blocs et gérer les cas limites."
+    depends_on: "copy-paste-implementation"
+  
+  - id: undo-redo-finalization
+    title: "Finaliser Undo/Redo - Connecter transactions à l'historique"
+    priority: "medium"
+    status: "planned"
+    notes: "Structure en place mais non fonctionnelle. Connecter les transactions, implémenter raccourcis Ctrl+Z/Y."
+    depends_on: "copy-paste-implementation"
+  
+  - id: text-styling-toolbar
+    title: "Toolbar de styles - Interface bold/italic/underline"
+    priority: "medium"
+    status: "planned"
+    notes: "Logique de styles OK mais UI manquante. Raccourcis clavier et visualisation des styles actifs."
+    depends_on: "copy-paste-implementation"
+  
+  - id: regression-tests
+    title: "Tests de régression - Suite automatisée"
+    priority: "medium"
+    status: "planned"
+    notes: "Suite de tests pour valider clavier, transformations, focus. Tests automatisés des cas limites."
+    depends_on: "copy-paste-implementation"
+
+later:
+  # Fonctionnalités importantes (Priorité FAIBLE)
+  - id: list-optimization
+    title: "Optimisation List - Simplifier logique imbriquée"
+    priority: "low"
+    status: "backlog"
+    notes: "Logique fonctionnelle mais complexe. Simplifier l'imbrication List/ListItem, tests approfondis des cas complexes."
+  
+  - id: missing-blocks-quote
+    title: "Block Blockquote - Citations formatées"
+    priority: "low"
+    status: "backlog"
+    notes: "Block pour citations avec styles. Manque dans l'architecture actuelle des blocks disponibles."
+  
+  - id: missing-blocks-image
+    title: "Block Image - Images avec alt/title"
+    priority: "low"
+    status: "backlog"
+    notes: "Block pour insérer des images. Support des formats, alt text, dimensions."
+  
+  - id: missing-blocks-code
+    title: "Block Code - Code syntax highlighting"
+    priority: "low"
+    status: "backlog"
+    notes: "Block pour code avec coloration syntaxique. Support de plusieurs langages de programmation."
+  
+  - id: missing-blocks-table
+    title: "Block Table - Tableaux structurés"
+    priority: "low"
+    status: "backlog"
+    notes: "Block pour tableaux complexes. Gestion des cellules fusionnées, headers/footers."
+  
+  - id: plugin-system
+    title: "Plugin System - Architecture d'extensions"
+    priority: "low"
+    status: "backlog"
+    notes: "Système pour plugins tiers. API stable, documentation des extensions."
+  
+  - id: performance-optimization
+    title: "Performance - Tests sur gros documents"
+    priority: "low"
+    status: "backlog"
+    notes: "Tests de performance avec 1000+ paragraphes. Optimisation des calculs réactifs, virtualisation."
+
+backlog:
+  # Idées et améliorations futures
+  - id: meta-blocks-system
+    title: "Meta Blocks - Blocks personnalisables"
+    priority: "low"
+    status: "backlog"
+    notes: "Système pour créer des blocks composites personnalisés. Templates réutilisables."
+  
+  - id: collaboration-features
+    title: "Collaboration - OT/CRDT"
+    priority: "low"
+    status: "backlog"
+    notes: "Édition collaborative en temps réel. Gestion des conflits, synchronisation serveur."
+  
+  - id: advanced-formatting
+    title: "Formatting avancé - Tables, colonnes"
+    priority: "low"
+    status: "backlog"
+    notes: "Mise en page complexe, colonnes, headers/footers. Formatage professionnel."
+  
+  - id: accessibility-improvements
+    title: "Accessibilité - ARIA, screen reader"
+    priority: "low"
+    status: "backlog"
+    notes: "Support complet lecteurs d'écran. Navigation au clavier améliorée, ARIA labels."
+  
+  - id: mobile-support
+    title: "Support Mobile - Touch, responsive"
+    priority: "low"
+    status: "backlog"
+    notes: "Interface mobile optimisée. Gestures touch, clavier virtuel responsive."
+
+---
+
+# Analyse technique détectée
+
+## TODOs identifiés
+- text.svelte.js:411: "TODO: Replace .getStyles with direct access to this.styles"
+- paragraph.system.svelte.js:30: "TODO: delete empty last paragraph on export"
+- codex.strategies.js:79: "TODO: implement next block input if next is not null and startBlock cannot accept all blocks"
+
+## Fonctionnalités incomplètes
+- linebreak.svelte.js:139: Input handler non implémenté
+- block.svelte.js:556: Input handler de base non implémenté
+
+## Systèmes existants mais non connectés
+- DataTransformSystem: Existe mais pas connecté au clipboard natif
+- Copy/Paste: Architecture prête mais finalisation manquante
+
+## Blocks manquants identifiés
+- Blockquote, Image, Code, Table, Figure, Video, Audio, Media, Embed, IFrame
+- Aucune trace de ces blocks dans la codebase actuelle
+
+---
+
+## Notes d'architecture
+
+### Forces identifiées
+- Modularité exceptionnelle avec système de presets
+- Architecture transactionnelle robuste avec rollback
+- Système de coordonnées réactif bien pensé
+- Pattern Strategy clair et extensible
+
+### Axes d'amélioration
+- Simplifier la complexité cognitive des nouvelles couches
+- Documenter les patterns d'extension pour les blocks
+- Optimiser les performances pour gros documents

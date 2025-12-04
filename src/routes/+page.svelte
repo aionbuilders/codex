@@ -17,20 +17,22 @@
         // Paragraph.data("This is a sample paragraph. You can edit this text, add new blocks, and explore the features of the Codex editor. Enjoy your writing experience!"),
         // List.data()
         Paragraph.data([
-            Text.data("abc "),
-            Link.data({type: "json", data: {
-                title: "def",
-                href: "https://kit.svelte.dev",
-                children: [Text.data("def")]
-            }}),
-            Text.data(" ghi")
+            // Text.data("abc "),
+            // Link.data({type: "json", data: {
+            //     title: "def",
+            //     href: "https://kit.svelte.dev",
+            //     children: [Text.data("def")]
+            // }}),
+            // Text.data(" ghi")
         ])
     ]);
 
     const codex = new Codex({in: data, preset: RichPreset, config: {styles: true}});
+    browser && (window.__codex__ = () => codex);
+    browser && (window.__values__ = () => codex.values);
     const Editor = codex.component;
 </script>
-
+<h1>Codex Editor Demo</h1>
 <div class="_">
     <div class="editor">
         {#if Editor}

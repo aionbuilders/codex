@@ -1,4 +1,4 @@
-import { Operations } from "$lib/utils/operations.utils";
+import { Operations } from "../../utils/operations.utils";
 import { Strategy } from "../../states/strategy.svelte";
 import { Linebreak } from "../linebreak/linebreak.svelte";
 import { Text } from "../text/text.svelte";

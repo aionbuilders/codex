@@ -1,4 +1,4 @@
-import { Operations } from "$lib/utils/operations.utils";
+import { Operations } from "../../utils/operations.utils";
 import { Paragraph, List, ListItem } from "..";
 import { System } from "../../states/system.svelte";
 

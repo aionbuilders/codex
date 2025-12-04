@@ -249,7 +249,6 @@ export class Codex extends MegaBlock {
                     .map((p) => p.type)
                     .filter((t) => t !== "codex");
                 const types = [...parentsTypes, block.type].join(":");
-                this.log(`EMIT ${types}:${eventType}`, types);
                 const event = await this.events.emit(`${types}:${eventType}`, {
                     event: e,
                     block,
@@ -375,6 +374,7 @@ export class Codex extends MegaBlock {
             if (!block) throw new Error("Block not found for focus operation");
             const data = block.getFocusData({ start, end });
             if (data)
+                console.timeStamp(`Refocus ${options.id}`);
                 this.setRange({
                     start: {
                         node: data.startElement,
@@ -430,15 +430,15 @@ export class Codex extends MegaBlock {
      *  end?: { node: Node, offset: number }
      * }} focus
      */
-    setRange = (focus) =>
-        requestAnimationFrame(() =>
-            this.selection.setRange(
-                focus.start.node,
-                focus.start.offset,
-                focus.end?.node || focus.start.node,
-                focus.end?.offset || focus.start.offset,
-            ),
+    setRange = (focus) => {
+        this.selection.setRange(
+            focus.start.node,
+            focus.start.offset,
+            focus.end?.node || focus.start.node,
+            focus.end?.offset || focus.start.offset,
         );
+        console.log("INPUT: Codex:setRange called with focus:", focus);
+    }
 
     getSelection = () => {
         const startBlock = this.children.find((b) => b.selected);
