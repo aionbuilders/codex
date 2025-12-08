@@ -386,6 +386,13 @@ class List extends MegaBlock {
         if (!this.children.length) tx.after(() => this.ops(this.prepareDestroy()));
         return items;
     }
+
+    data() {
+        return {
+            ...super.data(),
+            type: /** @type {"list"} */ ("list"),
+        };
+    }
 }
 
 /**
@@ -464,6 +471,16 @@ class ListItem extends MegaBlock {
 
     paragraph = $derived(/** @type {import('../paragraph/paragraph.svelte').Paragraph} */ (this.children[0]));
     sublist = $derived( /** @type {List|null} */ (this.children[1] ?? null));
+
+
+    data() {        
+        return {
+            ...super.data(),
+            type: /** @type {"list_item"} */ ("list_item"),
+            paragraph: this.paragraph.data(),
+            sublist: this.sublist?.data() || null,
+        };
+    }
 }
 
 List.manifest.blocks = [ListItem];

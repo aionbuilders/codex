@@ -180,9 +180,14 @@ export class Paragraph extends MegaBlock {
         const selection = this.selection;
 
         if (e.key === "Enter" && !e.shiftKey) {
+            console.clear();
             e.preventDefault();
-            const tx = this.codex?.tx(this.prepareSplit());
+            const ops = this.ops();
+            ops.add(...this.prepareSplit());
+            this.log("Prepared split ops:", ops);
+            const tx = this.codex?.tx(ops);
             tx.execute().then((tx) => {
+                this.log("Executed split tx:", tx);
                 const ops = tx.results;
                 const op = ops?.find(o => o.operation.metadata?.key === "new-paragraph");
                 const newParagraph = op?.result?.[0];
@@ -510,16 +515,12 @@ export class Paragraph extends MegaBlock {
      * @return {Operation[]}
      */
     prepareSplit = (data) => {
-        console.group("SPLITTING PARAGRAPH:", this.index, "WITH DATA:", data);
-        this.log("SPLITTING PARAGRAPH:", this.index, "WITH DATA:", data);
         const ops = this.ops();
         if (!this.selection) return ops;
         if (!this.codex) return ops;
         const s = this.getSplittingData(data);
         const splitting = this.getSplitting();
         const parts = this.slice({splitting});
-        console.log("SPLIT PARTS:", parts);
-        this.log("SPLITTING DATA", splitting);
         const {
             startBlock,
             startSplittingData,
@@ -912,10 +913,11 @@ export class Paragraph extends MegaBlock {
     data() {
         return {
             ...super.data(),
-            type: this.type,
+            type: /** @type {'paragraph'} */ (this.type),
             children: this.childrenWithoutTrailingLinebreak.map((c) =>
                 c.data(),
             ),
+            text: this.childrenWithoutTrailingLinebreak.map((c) => (c instanceof Linebreak ? "\n" : c.text)).join(""),
         };
     }
 

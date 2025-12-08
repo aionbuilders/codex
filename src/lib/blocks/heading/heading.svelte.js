@@ -67,7 +67,12 @@ export class Heading extends Paragraph {
         return super.onkeydown(e, data);
     }
 
-    
+    data() {
+        return {
+            ...super.data(),
+            level: this.level,
+        }
+    }
     
     values = $derived({
         // @ts-ignore

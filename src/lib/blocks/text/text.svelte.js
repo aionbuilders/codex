@@ -61,8 +61,6 @@ export class Text extends Block {
                     this.element.textContent = this.text;
                 });
             });
-
-            $inspect(this.selection).with(console.trace);
         });
 
         this.trine("edit", this.prepareEdit, this.edit, this.applyEdit);
@@ -352,7 +350,7 @@ export class Text extends Block {
     data() {
         return {
             ...super.data(),
-            type: "text",
+            type: /** @type {"text"} */ ("text"),
             text: this.text,
             styles: this.getStyles(),
         };

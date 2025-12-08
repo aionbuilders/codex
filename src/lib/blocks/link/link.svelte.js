@@ -492,6 +492,16 @@ export class Link extends MegaBlock {
         }
     })
 
+
+    data() {
+        return {
+            ...super.data(),
+            type: /** @type {"link"} */ ("link"),
+            href: this.href,
+            title: this.title,
+        };
+    }
+
     /**
     * @typedef {{ type: 'text', data: string }|string} TextDataType
     * @typedef {{ type: 'json', data: {children: Array<any>, href?: string, title?: string} }} JsonDataType

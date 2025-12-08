@@ -808,18 +808,18 @@ export class MegaBlock extends Block {
         const before = [
             ...splitting.before.map(b => this.cloneWithNewId(b.values.json)),
             ...(start ? [start.before] : []),
-        ]
+        ].filter(Boolean);
 
         const between = splitting.start === splitting.end ? [start.between] : [
             ...(start ? [start.after] : []),
             ...splitting.between.map(b => this.cloneWithNewId(b.values.json)),
             ...(end ? [end.before] : []),
-        ]
+        ].filter(Boolean);
 
         const after = [
             ...(end ? [end.after] : []),
             ...splitting.after.map(b => this.cloneWithNewId(b.values.json)),
-        ]
+        ].filter(Boolean);
 
         // Extraire l'ID original avant de modifier l'objet local
         const { id: originalId, ...localWithoutId } = this.values.json;

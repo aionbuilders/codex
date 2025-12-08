@@ -28,8 +28,11 @@
     ]);
 
     const codex = new Codex({in: data, preset: RichPreset, config: {styles: true}});
-    browser && (window.__codex__ = () => codex);
-    browser && (window.__values__ = () => codex.values);
+    browser && (window.__codex__ = () => codex.data());
+    browser && (window.__selection__ = () => ({
+        start: codex.selection.start,
+        end: codex.selection.end
+    }));
     const Editor = codex.component;
 </script>
 <h1>Codex Editor Demo</h1>
