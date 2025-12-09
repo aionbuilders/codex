@@ -14,7 +14,7 @@
 </div>
 
 
-<style lang="scss">
+<style lang="">
     .debug {
         flex: 1;
         height: 100%;

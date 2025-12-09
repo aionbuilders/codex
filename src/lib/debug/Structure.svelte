@@ -14,7 +14,7 @@
 
 </div>
 
-<style lang="scss">
+<style lang="">
     .structure {
         border-top: 1px dashed #ddd;
         border-right: 1px dashed #ddd;

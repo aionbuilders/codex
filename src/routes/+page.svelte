@@ -35,7 +35,7 @@
     }));
     const Editor = codex.component;
 </script>
-<h1>Codex Editor Demo</h1>
+
 <div class="_">
     <div class="editor">
         {#if Editor}
@@ -45,7 +45,7 @@
     <Debug {codex} />
 </div>
 
-<style lang="scss">
+<style lang="">
     ._ {
         // padding: 25px;
         width: 100%;

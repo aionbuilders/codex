@@ -387,24 +387,22 @@ export class Block {
                     .map((p) => p.type)
                     .filter((t) => t !== "codex");
                 const types = [...parentsTypes, callableParent.type].join(":");
-                this.codex.events
-                    .emit(`${types}:${eventType}`, {
-                        event,
-                        block: callableParent,
-                        args,
-                    })
-                    .then((E) => {
-                        if (!E.get("stopped")) {
-                            /** @type {function(Event, ...any): void} */
-                            // @ts-ignore
-                            const method = callableParent[`on${eventType}`];
-                            if (typeof method === "function")
-                                return method.apply(callableParent, [
-                                    event,
-                                    ...args,
-                                ]);
-                        }
-                    });
+                this.codex.events.emit(`${types}:${eventType}`, {
+                    event,
+                    block: callableParent,
+                    args,
+                }).then((E) => {
+                    if (!E.stopped) {
+                        /** @type {function(Event, ...any): void} */
+                        // @ts-ignore
+                        const method = callableParent[`on${eventType}`];
+                        if (typeof method === "function")
+                            return method.apply(callableParent, [
+                            event,
+                            ...args,
+                        ]);
+                    }
+                });
             }
         }
     }

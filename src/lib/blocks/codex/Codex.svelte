@@ -21,7 +21,7 @@
     </div>
 {/if}
 
-<style lang="scss">
+<style>
     .editor {
         width: 100%;
         max-width: 800px;

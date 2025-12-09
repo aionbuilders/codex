@@ -44,7 +44,7 @@ export class ListSystem extends System {
 
             /** @param {(...args: any[]) => any} callback */
             const transfer = (callback) => {
-                c.event.set("stopped", true);
+                c.event.stop();
                 event.preventDefault();
                 return callback();
             };
@@ -76,7 +76,7 @@ export class ListSystem extends System {
 
             if (!(paragraph && item && list)) return;
             if (event.key === "Enter" && !event.shiftKey) {
-                c.event.set("stopped", true);
+                c.event.stop();
                 console.log("STOPPEEDD");
 
                 event.preventDefault();
@@ -102,8 +102,8 @@ export class ListSystem extends System {
 
         this.codex.events.on("paragraph:text:onbeforeinput", (c) => {
             const data = c.event.data;
-            /** @type {{block: Text, event: InputEvent}} */
-            const { block, event } = data;
+            
+            const { block, event } = /** @type {{block: Text, event: InputEvent}} */ (data);
             const paragraph =
                 block.parent instanceof Paragraph ? block.parent : null;
             if (!paragraph) return;
@@ -114,12 +114,6 @@ export class ListSystem extends System {
             const startPosition = block.selection?.start || 0;
             const prefix = textContent.slice(0, startPosition);
             const match = prefix.match(/^([-*+]|\d+\.)$/);
-            console.log(
-                "ListSystem:oninput detected prefix:",
-                prefix,
-                "match:",
-                match,
-            );
             if (match) {
                 console.log(`Transforming paragraph to list item`);
 

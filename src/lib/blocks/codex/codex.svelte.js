@@ -23,6 +23,7 @@ import { untrack } from "svelte";
 import { PlainPreset } from "../../presets";
 import { SvelteMap } from "svelte/reactivity";
 import { Pulse } from "@killiandvcz/pulse";
+import { CodexEvent } from "$lib/utils/events.utils";
 
 export const initialStrategies = [...codexStrategies];
 
@@ -43,7 +44,9 @@ export class Codex extends MegaBlock {
     constructor(init = {}) {
         super(null, init);
 
-        this.events = new Pulse();
+        this.events = new Pulse({
+            EventClass: CodexEvent,
+        });
 
         /** @type {CodexInit} */
         this.init = init;
@@ -202,13 +205,19 @@ export class Codex extends MegaBlock {
         try {
             const context = { event: e };
 
+            const EVENT = await this.events.emit(`codex:${eventType}`, { event: e, codex: this, args: context });
+            if (EVENT.stopped) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                return;
+            };
+
+
             const codexStrategy = this.strategies
-                ?.filter(
-                    (s) =>
-                        s.tags.includes("@codex") &&
-                        s.tags.includes(strategyTag),
-                )
+                .filter(s => s.tags.includes("@codex") && s.tags.includes(strategyTag))
                 .find((s) => s.canHandle(this, context));
+
             if (codexStrategy) {
                 e.preventDefault();
                 codexStrategy.execute(this, { ...context, block: this });
@@ -254,7 +263,7 @@ export class Codex extends MegaBlock {
                     block,
                 });
                 // @ts-ignore
-                if (!event.get("stopped")) {
+                if (!event.stopped) {
                     // @ts-ignore
                     const handler = block[eventType];
                     if (typeof handler === "function") handler.call(block, e);

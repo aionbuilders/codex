@@ -12,4 +12,5 @@ export const MinimalPreset = new Preset({
     blocks: [Paragraph],
     systems: [ParagraphSystem, DataTransformSystem, StyleSystem, LinkSystem],
     strategies: [textStyleStrategy],
+    
 })

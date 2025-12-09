@@ -7,5 +7,5 @@
 
 <br bind:this={block.element} data-codex-linebreak-index={block.index} />
 
-<style lang="scss">
+<style lang="">
 </style>

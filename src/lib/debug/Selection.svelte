@@ -20,7 +20,7 @@
 
 {/if}
 
-<style lang="scss">
+<style lang="">
     .selection {
         border: 1px dashed rgba(0, 0, 255, 0.336);
         font-size: 12px;

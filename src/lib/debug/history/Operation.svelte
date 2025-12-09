@@ -11,7 +11,7 @@
     <p class="debug">{op.debug}</p>
 </div>
 
-<style lang="scss">
+<style lang="">
     .op {
         width: 100%;
         border-bottom: 1px solid #ccc;

@@ -48,7 +48,7 @@
 
 {/if}
 
-<style lang="scss">
+<style lang="">
     .block {
         background: white;
         border-bottom: 1px dashed #ddd;

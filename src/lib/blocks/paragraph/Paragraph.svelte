@@ -14,7 +14,7 @@
     {/if}
 </p>
 
-<style lang="scss">
+<style lang="">
     p {
         margin-bottom: 1rem;
     }

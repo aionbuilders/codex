@@ -8,3 +8,11 @@
     style:font-style={block.styles.italic ? "italic" : "normal"}
     style:text-decoration={block.styles.underline ? "underline" : block.styles.strikethrough ? "line-through" : "none"}
 ></span>
+
+
+<style>
+    span {
+        color: var(--codex-text-color, inherit);
+    }
+
+</style>

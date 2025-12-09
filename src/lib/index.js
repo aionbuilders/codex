@@ -6,3 +6,7 @@ export {Strategy} from './states/strategy.svelte';
 export { Operation, SMART, ITSELF } from './utils/operations.utils.js';
 
 export { Preset } from './presets/preset.js';
+
+
+import * as Presets from "./presets";
+export {Presets};

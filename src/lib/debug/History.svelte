@@ -44,7 +44,7 @@
 </div>
 
 
-<style lang="scss">
+<style lang="">
     ._{
         position: absolute;
         bottom: 0;

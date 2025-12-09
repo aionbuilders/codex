@@ -20,7 +20,7 @@ export class Preset {
         return this.init.name || 'custom-preset';
     }
 
-    /** @returns {Array<typeof import('../states/block.svelte').Block>} */
+    /** @returns {Array<typeof import('../blocks').Block>} */
     get blocks() {
         const blocks = new Set(this.init.blocks || []);
         
@@ -103,7 +103,6 @@ export class Preset {
     }
 
 
-
     debug = () => {
         console.log('Preset ', this.name, this.extends ? `(extends ${this.extends.name})` : '', ' :');
         console.log('- Blocks :');
@@ -114,3 +113,10 @@ export class Preset {
         return this;
     }
 }
+
+
+/**
+ * @callback PresetOnloadCallback
+ * @param {{codex: import('../blocks/codex/codex.svelte').Codex}} args
+ * 
+ */

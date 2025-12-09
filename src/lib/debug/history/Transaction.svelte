@@ -17,7 +17,7 @@
     </div>
 </div>
 
-<style lang="scss">
+<style lang="">
     .tx {
         display: flex;
         position: relative;

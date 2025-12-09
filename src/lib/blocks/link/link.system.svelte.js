@@ -19,7 +19,7 @@ export class LinkSystem extends System {
                 const paragraph = /** @type {import('..').Paragraph} */ (block.parent);
                 const selection = paragraph.selection;
                 if (!selection?.isCollapsed) return;
-                c.event.set("stopped", true);
+                c.event.stop();
                 event.preventDefault();
                 const textBeforeCaret = paragraph.text.slice(0, selection.start);
                 const linkPattern = /\[([^\]]+)\]\(([^\s\)]+)(?:\s+"([^"]+)")?\)$/;

@@ -4,5 +4,5 @@ export const PlainPreset = MinimalPreset.extend({
     name: '@codex/plain',
     config: {
         styles: false,
-    }
+    },
 })

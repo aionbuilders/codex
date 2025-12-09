@@ -16,7 +16,7 @@
     {/if}
 </svelte:element>
 
-<style lang="scss">
+<style>
     h1,
     h2,
     h3,

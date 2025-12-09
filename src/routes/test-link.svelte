@@ -71,7 +71,7 @@
     </div>
 </div>
 
-<style lang="scss">
+<style lang="">
     ._ {
         width: 100%;
         height: 100vh;
