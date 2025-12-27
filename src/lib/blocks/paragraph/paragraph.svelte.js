@@ -64,6 +64,7 @@ export class Paragraph extends MegaBlock {
         this.preparator("truncate", this.prepareTruncate.bind(this));
         this.preparator("transform", this.prepareTransform.bind(this));
         this.preparator("input", this.prepareInput.bind(this));
+        this.preparator("softbreak", this.prepareSoftbreak.bind(this));
 
         this.$init();
 
@@ -229,33 +230,9 @@ export class Paragraph extends MegaBlock {
                 /** @type {import("../text/text.svelte").SplitData} */
                 const { block, editData, newTextData } = data;
                 if (block) {
-                    const blockIndex = this.children.findIndex(
-                        (c) => c === block,
-                    );
-                    const ops = this.ops();
                     if (e.shiftKey) {
-                        const offset = this.selection.start || 0;
-                        if (editData) ops.push(...block.prepareEdit(editData));
-                        ops.push(
-                            ...this.prepareInsert({
-                                block: { type: "linebreak" },
-                                offset: blockIndex + 1,
-                            }),
-                        );
-                        if (newTextData)
-                            ops.push(
-                                ...this.prepareInsert({
-                                    block: {
-                                        type: "text",
-                                        init: {
-                                            text: newTextData.text,
-                                            ...newTextData.styles,
-                                        },
-                                    },
-                                    offset: blockIndex + 2,
-                                }),
-                            );
-                        const tx = this.codex.tx(ops);
+                        const offset = this.selection?.start || 0;
+                        const tx = this.codex.tx(this.prepareSoftbreak());
                         tx.execute().then(() => {
                             tx.focus({
                                 start: offset + 1,
@@ -293,56 +270,12 @@ export class Paragraph extends MegaBlock {
         if (e.key === "Enter") {
             e.preventDefault();
             if (e.shiftKey) {
-                const ops = this.ops();
-                const offset = first && first.selection && first.start + (first instanceof Text ? first.selection?.start : 0);
-                if (first === last) {
-                    const index = this.children.findIndex((c) => c === first);
-                    if (first instanceof Text) {
-                        const data = first.getSplittingData(SMART);
-                        if (data) {
-                            ops.push(
-                                ...first.prepareEdit({
-                                    from: first.selection?.start || 0,
-                                    to: first.text.length,
-                                }),
-                            );
-                            ops.push(
-                                ...this.prepareInsert({
-                                    block: {
-                                        type: "linebreak",
-                                    },
-                                    offset: index + 1,
-                                }),
-                            );
-                            if (data.after) {
-                                ops.push(
-                                    ...this.prepareInsert({
-                                        block: {
-                                            type: "text",
-                                            init: data.after,
-                                        },
-                                        offset: index + 2,
-                                    }),
-                                );
-                            }
-                        }
-                    } else if (first instanceof Linebreak) {
-                        ops.push(
-                            ...this.prepareInsert({
-                                block: {
-                                    type: "linebreak",
-                                },
-                                offset: index + 1,
-                            }),
-                        );
-                    }
-                }
-
-                const tx = this.codex?.tx(ops);
-                tx?.execute().then((r) => {
+                const offset = this.selection?.start || 0;
+                const tx = this.codex?.tx(this.prepareSoftbreak());
+                tx?.execute().then(() => {
                     tx.focus({
-                        start: (offset || 0) + 1,
-                        end: (offset || 0) + 1,
+                        start: offset + 1,
+                        end: offset + 1,
                         block: this,
                     });
                 });
@@ -748,6 +681,160 @@ export class Paragraph extends MegaBlock {
 
         return ops;
     }
+
+    /**
+     * Prépare l'insertion d'un softbreak (linebreak) à la position spécifiée.
+     * Si une sélection est présente, elle sera supprimée avant l'insertion.
+     * @param {{
+     *   start?: number,
+     *   end?: number,
+     *   offset?: number
+     * }|SMART} [data=SMART] - Position ou SMART pour utiliser la sélection locale
+     * @returns {Operation[]}
+     */
+    prepareSoftbreak = (data) => {
+        const ops = this.ops();
+        if (!this.codex) return ops;
+
+        // === 1. Normalisation de la position ===
+        if (!data || data === SMART) {
+            if (!this.selection) return ops;
+            data = {
+                start: this.selection.start || 0,
+                end: this.selection.end || this.selection.start || 0
+            };
+        } else if (data.offset !== undefined) {
+            data = { start: data.offset, end: data.offset };
+        }
+
+        const position = this.normalizePosition(data);
+        const { start, end } = position;
+
+        // === 2. Gestion de la sélection non-collapsed ===
+        if (start !== end) {
+            // Trouver les blocs de la sélection
+            const startBlock = this.children.find((child) => child.selected);
+            const endBlock = this.children.findLast(
+                (child) => child.selected && child !== startBlock,
+            );
+            const betweenBlocks =
+                (startBlock &&
+                    endBlock &&
+                    this.children.slice(
+                        this.children.indexOf(startBlock) + 1,
+                        this.children.indexOf(endBlock),
+                    )) ||
+                [];
+
+            if (!startBlock || !endBlock) return ops;
+            const startIndex = this.children.indexOf(startBlock);
+
+            // Supprimer la partie sélectionnée dans endBlock
+            if (
+                !(
+                    endBlock instanceof Linebreak &&
+                    endBlock.i === this.children.length - 1
+                )
+            )
+                ops.push(
+                    ...(endBlock
+                        ? endBlock instanceof Text
+                            ? endBlock.prepareEdit({
+                                  from: 0,
+                                  to: endBlock.selection?.end || 0,
+                              })
+                            : this.prepareRemove({ id: endBlock.id })
+                        : []),
+                );
+
+            // Supprimer les blocs entre startBlock et endBlock
+            if (betweenBlocks.length)
+                ops.push(
+                    ...this.prepareRemove({
+                        ids: betweenBlocks.map((b) => b.id),
+                    }),
+                );
+
+            // Supprimer la partie sélectionnée dans startBlock
+            ops.push(
+                ...(startBlock
+                    ? startBlock instanceof Text
+                        ? startBlock.prepareEdit({
+                              from: startBlock.selection?.start || 0,
+                              to: startBlock.text.length,
+                          })
+                        : this.prepareRemove({ id: startBlock.id })
+                    : []),
+            );
+
+            // Insérer le linebreak à la position start
+            ops.push(
+                ...this.prepareInsert({
+                    block: { type: "linebreak" },
+                    offset: startIndex + 1,
+                }),
+            );
+
+            return ops;
+        }
+
+        // === 3. Gestion de la sélection collapsed (insertion simple) ===
+        const startBlock = this.children.find(
+            (child) => start >= child.start && start <= child.end
+        );
+
+        if (!startBlock) return ops;
+        const blockIndex = this.children.indexOf(startBlock);
+
+        if (startBlock instanceof Text) {
+            const localOffset = start - startBlock.start;
+
+            // Cas où on coupe le texte (pas à la fin)
+            if (localOffset < startBlock.text.length) {
+                const splittingData = startBlock.getSplittingData({
+                    from: localOffset,
+                    to: startBlock.text.length
+                });
+
+                // Couper le texte
+                ops.push(...startBlock.prepareEdit({
+                    from: localOffset,
+                    to: startBlock.text.length,
+                }));
+
+                // Insérer le linebreak
+                ops.push(...this.prepareInsert({
+                    block: { type: "linebreak" },
+                    offset: blockIndex + 1,
+                }));
+
+                // Réinsérer la partie après si elle existe
+                if (splittingData.after) {
+                    ops.push(...this.prepareInsert({
+                        block: {
+                            type: "text",
+                            init: splittingData.after,
+                        },
+                        offset: blockIndex + 2,
+                    }));
+                }
+            } else {
+                // On est à la fin du texte, juste insérer le linebreak
+                ops.push(...this.prepareInsert({
+                    block: { type: "linebreak" },
+                    offset: blockIndex + 1,
+                }));
+            }
+        } else if (startBlock instanceof Linebreak) {
+            // C'est déjà un Linebreak, en insérer un autre après
+            ops.push(...this.prepareInsert({
+                block: { type: "linebreak" },
+                offset: blockIndex + 1,
+            }));
+        }
+
+        return ops;
+    };
 
     /**
      * @param {{
