@@ -120,7 +120,7 @@ export class Paragraph extends MegaBlock {
 
     /** @type {MegaBlock['getSelectionEnd']} */
     getSelectionEnd(lastChild) {
-        if (lastChild instanceof Linebreak) return lastChild.start + (this.codex?.selection.collapsed ? 0 : 1);
+        if (lastChild instanceof Linebreak) return lastChild.start + (this.codex?.selection.collapsed  ? 0 : 1);
         else return lastChild.start + (lastChild.selection?.end || 0);
     }
 

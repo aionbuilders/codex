@@ -347,23 +347,35 @@ export class Block {
                     .filter((t) => t !== "codex");
                 const types = [...parentsTypes, callableParent.type].join(":");
                 this.codex.events.emit(`${types}:${eventType}`, {
+                    chain: types,
                     event,
                     block: callableParent,
                     args,
                 }).then((E) => {
-                    if (!E.stopped) {
-                        /** @type {function(Event, ...any): void} */
-                        // @ts-ignore
-                        const method = callableParent[`on${eventType}`];
-                        if (typeof method === "function")
-                            return method.apply(callableParent, [
-                            event,
-                            ...args,
-                        ]);
-                    }
+                    if (!E.stopped) callableParent.handleEvent(event, ...args);
                 });
             }
         }
+    }
+
+    /** @param {Event} event @param {...any} args */
+    handleEvent = (event, ...args) => {
+        if (!this.codex) return;
+        const eventType = event.type;
+        const methodName = `on${eventType}`;
+        const chain = [...(this.parents.map((p) => p.type).filter((t) => t !== "codex")), this.type].join(":");
+        this.codex.events.emit(`${this.type}:on${eventType}`, {
+            chain,
+            event,
+            block: this,
+            args,
+        }).then(E => {
+            if (E.stopped) return;
+            if (methodName in this && typeof this[methodName] === "function") {
+                const handler = /** @type {(event: Event, ...args: any[]) => any} */ (this[methodName]);
+                return handler.call(this, event, ...args);
+            }
+        });
     }
 
     /**

@@ -48,6 +48,10 @@ export class Codex extends MegaBlock {
             EventClass: CodexEvent,
         });
 
+        this.events.on("**", (e) => {
+            console.log(`[Codex Event]`, e.event.topic);
+        });
+
         /** @type {CodexInit} */
         this.init = init;
 
@@ -77,6 +81,8 @@ export class Codex extends MegaBlock {
                     ?.filter((name) => name.startsWith("system:"))
                     .map((name) => name.replace("system:", "")) || [],
         };
+
+        this.on = this.events.on.bind(this.events);
 
         $effect.root(() => {
             $effect(() => {
@@ -125,6 +131,7 @@ export class Codex extends MegaBlock {
         });
 
         this.$init();
+
     }
 
     // @ts-ignore
@@ -232,9 +239,7 @@ export class Codex extends MegaBlock {
 
                 while (currentParent) {
                     if (!(currentParent instanceof MegaBlock)) break;
-                    const strategy = currentParent.strategies
-                        ?.filter((s) => s.tags.includes(strategyTag))
-                        .find((s) => s.canHandle(this, context));
+                    const strategy = currentParent.strategies?.filter((s) => s.tags.includes(strategyTag)).find((s) => s.canHandle(this, context));
                     if (strategy) {
                         e.preventDefault();
                         strategy.execute(this, {
@@ -243,9 +248,7 @@ export class Codex extends MegaBlock {
                         });
                         return;
                     }
-                    currentParent =
-                        currentParent.parent ||
-                        (currentParent === this ? null : this);
+                    currentParent = currentParent.parent || (currentParent === this ? null : this);
                 }
             } else if (currentParent) {
                 // @ts-ignore
@@ -254,9 +257,7 @@ export class Codex extends MegaBlock {
                     (block) => typeof block[eventType] === "function",
                 );
                 if (!block) return;
-                const parentsTypes = block.parents
-                    .map((p) => p.type)
-                    .filter((t) => t !== "codex");
+                const parentsTypes = block.parents.map((p) => p.type).filter((t) => t !== "codex");
                 const types = [...parentsTypes, block.type].join(":");
                 const event = await this.events.emit(`${types}:${eventType}`, {
                     event: e,
@@ -265,8 +266,9 @@ export class Codex extends MegaBlock {
                 // @ts-ignore
                 if (!event.stopped) {
                     // @ts-ignore
-                    const handler = block[eventType];
-                    if (typeof handler === "function") handler.call(block, e);
+                    // const handler = block[eventType];
+                    // if (typeof handler === "function") handler.call(block, e);
+                    block.handleEvent(e);
                 }
             } else if (eventType === "beforeinput") {
                 e.preventDefault();
