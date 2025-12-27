@@ -367,33 +367,7 @@ export class Text extends Block {
             },
         };
     }
-
-    toObject() {
-        return {
-            type: "text",
-            text: this.text,
-            ...this.getStyles(),
-        };
-    }
-
-    toInit() {
-        return {
-            ...super.toInit(),
-            init: {
-                text: this.text,
-                ...this.getStyles(),
-            },
-        };
-    }
-
     toMarkdown() {}
-
-    getRelativePosition() {
-        return {
-            start: this.start,
-            end: this.end,
-        };
-    }
 
     /**
      * @param {{

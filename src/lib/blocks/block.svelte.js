@@ -306,47 +306,6 @@ export class Block {
         } else return null;
     }
 
-    /**
-     * Determines the relative position of the block in the document.
-     * @param {any} [hint] - Optional hint to specify the desired relative position ('before', 'after', 'start', 'end').
-     * @returns {any} - The relative position, which can be 'before', 'after', or an object representing a selection.
-     */
-    getRelativePosition(hint) {
-        // Par défaut, on ne supporte que 'before' ou 'after'
-        if (hint === "start" || hint === "before") return "before";
-        if (hint === "end" || hint === "after") return "after";
-
-        // Si le bloc a une sélection active, la capturer
-        if (this.selected && window.getSelection) {
-            const sel = window.getSelection();
-            if (!sel) return;
-            const range = sel.getRangeAt(0);
-            const startInMe = this.element?.contains(range.startContainer);
-            const endInMe = this.element?.contains(range.endContainer);
-
-            // Si la sélection est dans mon element
-            if (this.element?.contains(range.startContainer)) {
-                return {
-                    type: "selection",
-                    ...(startInMe
-                        ? {
-                              startPath: this.getNodePath(range.startContainer),
-                              startOffset: range.startOffset,
-                          }
-                        : { startPath: null, startOffset: 0 }),
-                    ...(endInMe
-                        ? {
-                              endPath: this.getNodePath(range.endContainer),
-                              endOffset: range.endOffset,
-                          }
-                        : { endPath: null, endOffset: 0 }),
-                };
-            }
-        }
-
-        return "before"; // Fallback
-    }
-
     /** @type {Object<string, any>} */
     metadata = $state({});
 
@@ -510,17 +469,6 @@ export class Block {
         };
     }
 
-    toObject() {
-        return {
-            type: this.type,
-        };
-    }
-
-    toInit() {
-        return {
-            type: this.type,
-        };
-    }
 
     /** @type {BlockManifest} */
     get manifest() {
@@ -544,18 +492,6 @@ export class Block {
      */
     $in(data) {
         console.warn("Block input handler not implemented:", data);
-    }
-
-    /**
-     * @param {Object} data
-     */
-    snapshot(data) {
-        return {
-            id: this.id,
-            type: this.type,
-            metadata: this.metadata,
-            ...data,
-        };
     }
 
     /** @param {...import('../utils/operations.utils').Ops} ops */

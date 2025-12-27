@@ -231,7 +231,7 @@ export class Transaction {
         this.execute(true).catch(console.error);
     }
 
-    /** @param {Focus} f @param {Object} [options] */
+    /** @param {Focus & {block?: import('../blocks').Block}} f @param {Object} [options] */
     focus = (f, options) => this.codex?.focus(f, { tx: this, ...options });
 
     toJSON() {
