@@ -43,9 +43,8 @@
     <Debug {codex} />
 </div>
 
-<style lang="">
+<style>
     ._ {
-        // padding: 25px;
         width: 100%;
         height: 100vh;
         display: flex;
@@ -61,7 +60,5 @@
             align-items: center;
             padding: 25px;
         }
-        
-
     }
 </style>

@@ -23,7 +23,7 @@ import { untrack } from "svelte";
 import { PlainPreset } from "../../presets";
 import { SvelteMap } from "svelte/reactivity";
 import { Pulse } from "@killiandvcz/pulse";
-import { CodexEvent } from "$lib/utils/events.utils";
+import { CodexEvent } from "../../utils/events.utils";
 
 export const initialStrategies = [...codexStrategies];
 

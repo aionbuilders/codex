@@ -1,5 +1,5 @@
 
-import { System } from "$lib/states/system.svelte";
+import { System } from "../../states/system.svelte";
 
 /** @typedef {import('../../blocks').Codex} Codex */
 
