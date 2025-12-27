@@ -11,6 +11,5 @@ export const MinimalPreset = new Preset({
     name: '@codex/minimal',
     blocks: [Paragraph],
     systems: [ParagraphSystem, DataTransformSystem, StyleSystem, LinkSystem],
-    strategies: [textStyleStrategy],
-    
+    strategies: [textStyleStrategy],  
 })

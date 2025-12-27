@@ -5,9 +5,7 @@
     import { generateMockCodexData } from './mock';
     import { browser } from '$app/environment';
     import { Paragraph } from '$lib/blocks';
-    import { RichPreset } from '$lib/presets';
-    import { Heading } from '$lib/blocks';
-    import { List, Link, Text } from '$lib/blocks';
+    import { RichPreset, TextareaPreset } from '$lib/presets';
     
     const data = browser && Codex.data([
         // ...generateMockCodexData({count: 200})
@@ -27,7 +25,7 @@
         ])
     ]);
 
-    const codex = new Codex({in: data, preset: RichPreset, config: {styles: true}});
+    const codex = new Codex({in: data, preset: TextareaPreset, config: {styles: true}});
     browser && (window.__codex__ = () => codex.data());
     browser && (window.__selection__ = () => ({
         start: codex.selection.start,

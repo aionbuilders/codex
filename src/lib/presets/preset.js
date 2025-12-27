@@ -68,12 +68,40 @@ export class Preset {
     }
     
     /** @returns {Preset|undefined} */
-    get extends() {
+    get extended() {
         return this.init.extends;
     }
 
     /** @param {PresetInit} init */
     extend = (init = {}) => Preset.extend(this, init);
+
+
+    /** @param {Preset} preset */
+    extends = (preset) => {
+        this.init.extends = preset;
+        return this;
+    }
+
+    /** @param  {...typeof import('../blocks/block.svelte').Block} blocks */
+    withBlocks = (...blocks) => {
+        this.init.blocks = this.init.blocks || [];
+        this.init.blocks.push(...blocks);
+        return this;
+    }
+
+    /** @param  {...typeof import('../states/system.svelte').System} systems */
+    withSystems = (...systems) => {
+        this.init.systems = this.init.systems || [];
+        this.init.systems.push(...systems);
+        return this;
+    }
+
+    /** @param  {...import('../states/strategy.svelte').Strategy} strategies */
+    withStrategies = (...strategies) => {
+        this.init.strategies = this.init.strategies || [];
+        this.init.strategies.push(...strategies);
+        return this;
+    }
 
     /**
      * Clones the preset.
@@ -104,7 +132,7 @@ export class Preset {
 
 
     debug = () => {
-        console.log('Preset ', this.name, this.extends ? `(extends ${this.extends.name})` : '', ' :');
+        console.log('Preset ', this.name, this.extended ? `(extends ${this.extended.name})` : '', ' :');
         console.log('- Blocks :');
         console.table(this.blocks.map(b => b.manifest.type));
         console.log('- Systems :');
@@ -115,8 +143,16 @@ export class Preset {
 }
 
 
+
+
 /**
  * @callback PresetOnloadCallback
  * @param {{codex: import('../blocks/codex/codex.svelte').Codex}} args
  * 
  */
+
+
+/** 
+ * @param {string} name
+ */
+export const preset = (name) => new Preset({ name });

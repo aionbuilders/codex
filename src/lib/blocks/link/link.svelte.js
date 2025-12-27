@@ -128,7 +128,6 @@ export class Link extends MegaBlock {
 
     /** @type {import('../../utils/block.utils').BlockListener<KeyboardEvent>} */
     onkeydown = (e, data) => {
-        console.clear();
         if (!this.selection) return;
         
         // NOUVEAU : Gestion de la sortie du Link

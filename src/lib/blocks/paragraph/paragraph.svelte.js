@@ -180,7 +180,6 @@ export class Paragraph extends MegaBlock {
         const selection = this.selection;
 
         if (e.key === "Enter" && !e.shiftKey) {
-            console.clear();
             e.preventDefault();
             const ops = this.ops();
             ops.add(...this.prepareSplit());
@@ -235,7 +234,6 @@ export class Paragraph extends MegaBlock {
                     );
                     const ops = this.ops();
                     if (e.shiftKey) {
-                        
                         const offset = this.selection.start || 0;
                         if (editData) ops.push(...block.prepareEdit(editData));
                         ops.push(
@@ -275,7 +273,6 @@ export class Paragraph extends MegaBlock {
                     const previous = what === "previous";
                     const next = what === "next";
                     const offset = previous ? block.start - 1 : block.end;
-                    // const blockIndex = this.children.findIndex((c) => c === block);
                     const blockIndex = block.i;
                     const target = previous ? this.children[blockIndex - 1] : this.children[blockIndex + 1];
                     const ops = this.ops();
@@ -295,7 +292,6 @@ export class Paragraph extends MegaBlock {
 
         if (e.key === "Enter") {
             e.preventDefault();
-
             if (e.shiftKey) {
                 const ops = this.ops();
                 const offset = first && first.selection && first.start + (first instanceof Text ? first.selection?.start : 0);
@@ -353,6 +349,8 @@ export class Paragraph extends MegaBlock {
             }
         }
     }
+
+    
 
     normalize = () => {
         if (!this.codex) return;

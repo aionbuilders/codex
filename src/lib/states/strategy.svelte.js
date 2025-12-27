@@ -8,13 +8,13 @@
 export class Strategy {
     /**
      * @param {String} name
-     * @param {CanHandle} canHandleFn
-     * @param {Executor} executeFn
+     * @param {CanHandle} [canHandleFn]
+     * @param {Executor} [executeFn]
      */
     constructor(name, canHandleFn, executeFn) {
         this.name = name;
-        this.canHandleFn = canHandleFn;
-        this.executeFn = executeFn;
+        this.canHandleFn = canHandleFn || (() => true);
+        this.executeFn = executeFn || (() => {});
 
         /** @type {String[]} */
         this.tags = [];
@@ -40,7 +40,7 @@ export class Strategy {
      * @param {any} context - Additional context for the strategy.
      */
     execute = (codex, context) => {
-        if (this.canHandle(codex, context)) {
+        if (this.canHandle(codex, context) && this.executeFn) {
             this.executeFn(codex, context);
         } else {
             console.warn(
@@ -48,6 +48,26 @@ export class Strategy {
             );
         }
     };
+
+    /**
+     * Sets the canHandle function for the strategy.
+     * @param {CanHandle} fn - The function to determine if the strategy can handle the codex.
+     * @returns {Strategy} - The current strategy instance for chaining.
+     */
+    if = fn => {
+        this.canHandleFn = fn;
+        return this;
+    }
+
+    /**
+     * Sets the execute function for the strategy.
+     * @param {Executor} fn - The function to execute the strategy.
+     * @returns {Strategy} - The current strategy instance for chaining.
+     */
+    do = fn => {
+        this.executeFn = fn;
+        return this;
+    }
 
     /**
      * Adds a tag to the strategy.
@@ -60,4 +80,17 @@ export class Strategy {
         }
         return this;
     };
+
+    /**
+     * Adds an event listener tag to the strategy.
+     * @param {String} eventName - The event name to listen for.
+     * @returns {Strategy} - The current strategy instance for chaining.
+     */
+    on = (eventName) => this.tag(`on:${eventName}`);
 }
+
+
+/**
+ * @param {string} name
+ */
+export const strategy = (name) => new Strategy(name)
